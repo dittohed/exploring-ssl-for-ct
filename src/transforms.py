@@ -8,6 +8,14 @@ from monai.transforms import (
     Crop,
     Randomizable,
     MapTransform,
+    LoadImaged,
+    Compose,
+    CropForegroundd,
+    EnsureChannelFirstd,
+    ScaleIntensityRanged,
+    Orientationd,
+    Spacingd,
+    ToTensord
 )
 
 
@@ -174,3 +182,22 @@ class IoUCropd(Randomizable, MapTransform):
         vol_union = vol_a + vol_b - vol_inter
 
         return vol_inter / vol_union
+    
+
+def get_ssl_transforms(args):
+    transforms = Compose([
+        LoadImaged(keys=['img']),
+        EnsureChannelFirstd(keys=['img']),
+        Orientationd(keys=['img'], axcodes='RAS'),
+        # TODO: double-check pixdim order below
+        Spacingd(keys=['img'], pixdim=(args.size_y, args.size_x, args.size_z), 
+                 mode=('bilinear')),
+        ScaleIntensityRanged(keys=['img'], a_min=args.a_min, a_max=args.a_max,
+                             b_min=0.0, b_max=1.0, clip=True),
+        CropForegroundd(keys=['img'], source_key='img'),
+        IoUCropd(keys=['img'], min_iou=args.min_iou, max_iou=args.max_iou),
+        # TODO: put augmentations here
+        ToTensord(keys=['img1', 'img2'])
+    ])
+
+    return transforms
