@@ -158,9 +158,9 @@ def train_one_epoch(student, teacher, loss_fn, train_loader,
         losses.append(loss.item())
         tqdm_it.set_description(f'Epoch: [{epoch+1}/{args.n_epochs}]')
         tqdm_it.set_postfix(loss=loss.item(), 
-                            lr=lr_schedule[step],
-                            wd=wd_schedule[step],
-                            momentum=momentum_schedule[step])
+            lr=lr_schedule[step],
+            wd=wd_schedule[step],
+            momentum=str(momentum_schedule[step]))  # str() for no rounding
 
     return losses
 
