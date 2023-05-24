@@ -8,6 +8,7 @@ import torch.optim as optim
 
 from tqdm import tqdm
 from monai.data import DataLoader, Dataset
+from monai.utils import set_determinism
 
 import src.utils as utils
 
@@ -97,7 +98,7 @@ def get_args_parser():
         help='Path to save logs and checkpoints.')
     parser.add_argument('--save_chkpt_every', default=20, type=int, 
         help='How often to save model checkpoint.')
-    parser.add_argument('--seed', default=0, type=int, 
+    parser.add_argument('--seed', default=4294967295, type=int, 
         help='Random seed.')
     parser.add_argument('--num_workers', default=10, type=int, 
         help='Number of data loading workers per GPU.')
@@ -167,6 +168,7 @@ def train_one_epoch(student, teacher, loss_fn, train_loader,
 
 def main(args):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    set_determinism(args.seed)
 
     # Prepare data
     dataset = Dataset(data=get_ssl_data(args.data_dir), 
