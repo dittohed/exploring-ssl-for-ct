@@ -123,12 +123,14 @@ def train_one_epoch(student, teacher, loss_fn, train_loader,
 
         # Prepare input
         # TODO: add comment
-        x1, x2 = data_dict['img1'].to(device), data_dict['img2'].to(device)
-        x_student = x1
-        x_teacher = x2
-        # x_student = torch.cat([x1, x2])
-        # x_teacher = torch.cat([x2, x1])
+        x1, x2 = data_dict['img1'], data_dict['img2']
+        # x_student = x1.to(device)
+        # x_teacher = x2.to(device)
+        x_student = torch.cat([x1, x2]).to(device)
+        x_teacher = torch.cat([x2, x1]).to(device)
     
+        utils.display_gpu_info()
+
         # Forward pass
         with torch.cuda.amp.autocast(fp16_scaler is not None):
             out_student = student(x_student)
@@ -138,6 +140,8 @@ def train_one_epoch(student, teacher, loss_fn, train_loader,
         if not math.isfinite(loss.item()):
             print(f'Loss is {loss.item()}, stopping training...')
             sys.exit(1)
+
+        utils.display_gpu_info()
         
         # Backward pass
         optimizer.zero_grad()

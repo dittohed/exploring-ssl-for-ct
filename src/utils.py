@@ -59,6 +59,17 @@ def cosine_scheduler(
     return schedule
 
 
+def display_gpu_info():
+    free_mem, available_mem = torch.cuda.mem_get_info()
+    occupied_mem = available_mem - free_mem
+
+    occupied_mem = occupied_mem / 2**30
+    available_mem = available_mem / 2**30
+
+    print('--- GPU info ---')
+    print(f'{occupied_mem:.2f}/{available_mem:.2f} GB occupied')
+
+
 if __name__ == '__main__':
     schedules = [
         cosine_scheduler(
