@@ -21,7 +21,7 @@ from src.dino import Loss as DINOLoss
 def get_args_parser():
     parser = argparse.ArgumentParser('Pretrain CT')  # TODO: add_help?
 
-    # Swin params - OK
+    # Swin params
     parser.add_argument('--embedding_size', default=48, type=int,
         help='Swin backbone base embedding size (C from the paper)')
     parser.add_argument('--dropout_path_rate', default=0.0, type=float,  # TODO: DINO used 0.1 for ViT
@@ -29,11 +29,11 @@ def get_args_parser():
     parser.add_argument('--use_gradient_checkpointing', action='store_true',  # TODO: could try
         help='Whether to use gradient checkpointing (saves memory, longer training).')
     
-    # DINO head params - OK
-    parser.add_argument('--out_dim', default=512, type=int,  # TODO: get back to 2048 or as big as possible
+    # DINO head params
+    parser.add_argument('--out_dim', default=2048, type=int,  # TODO: as big as possible
         help='Dimensionality of the last head layer (softmax is calculated on).')
     
-    # DINO loss params - OK
+    # DINO loss params
     parser.add_argument('--init_teacher_temp', default=0.04, type=float,
         help='''Initial value for the teacher temperature: 0.04 works well in most 
         cases. Try decreasing it if the training loss does not decrease.''')
@@ -45,7 +45,7 @@ def get_args_parser():
     parser.add_argument('--teacher_temp_warmup_epochs', default=0, type=int,
         help='Number of warmup epochs for the teacher temperature.')
     
-    # Data params - OK
+    # Data params
     parser.add_argument('--spatial_dims', default=3, type=int, 
         help='Spatial dimension of input data, either 2 for 2D or 3 for 3D')
     parser.add_argument('--a_min', default=-1000, type=float, 
@@ -63,7 +63,7 @@ def get_args_parser():
     parser.add_argument('--max_iou', default=1.0, type=float, 
         help='Max. IoU of the 2nd crop with the 1st crop')
 
-    # Training params - OK
+    # Training params
     parser.add_argument('--use_fp16', action='store_true',
         help='''Whether or not to use half precision for training. 
         Improves training time and memory requirements, but can provoke instability 
@@ -128,8 +128,6 @@ def train_one_epoch(student, teacher, loss_fn, train_loader,
         # x_teacher = x2.to(device)
         x_student = torch.cat([x1, x2]).to(device)
         x_teacher = torch.cat([x2, x1]).to(device)
-    
-        utils.display_gpu_info()
 
         # Forward pass
         with torch.cuda.amp.autocast(fp16_scaler is not None):
