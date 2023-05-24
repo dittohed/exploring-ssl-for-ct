@@ -203,7 +203,7 @@ def main(args):
         temp_t=args.teacher_temp,
         temp_t_warmup_epochs=args.teacher_temp_warmup_epochs,
         n_epochs=args.n_epochs
-    )
+    ).to(device)
 
     param_groups = utils.get_param_groups(student)
     optimizer = optim.AdamW(params=param_groups)
