@@ -123,8 +123,7 @@ def train_one_epoch(student, teacher, loss_fn, train_loader, iters_per_epoch,
     tqdm_it.set_description(f'Epoch: [{epoch+1}/{args.n_epochs}]')
 
     for batch_idx, data_dict in enumerate(tqdm_it):
-        # Check iteration number (including aggregation)
-        # and skip for last incomplete batch
+        # Check logical batch number and skip for last incomplete batch
         if batch_idx // args.accum_iters == iters_per_epoch:
             break
 
