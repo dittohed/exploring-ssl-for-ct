@@ -52,18 +52,14 @@ class Loss(nn.Module):
         ).detach()
 
         loss = torch.sum(-soft_t*soft_s, dim=-1).mean()
-        self.update_center(out_t)  # TODO: move to main for aggregation
 
         return loss
 
-    # TODO: move to main loop as in pseudocode
     @torch.no_grad()
-    def update_center(self, out_t):
+    def update_center(self, batch_center):
         """
         Update center used for teacher output.
         """
-
-        batch_center = torch.mean(out_t, dim=0, keepdim=True)  # TODO: sum for all_reduce?
 
         # TODO: doublecheck for multiple GPUs
         # dist.all_reduce(batch_center)
