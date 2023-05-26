@@ -66,7 +66,7 @@ def display_gpu_info():
     occupied_mem = occupied_mem / 2**30
     available_mem = available_mem / 2**30
 
-    print(f'GPU: {occupied_mem:.2f}/{available_mem:.2f} GB occupied')
+    print(f'\nGPU: {occupied_mem:.2f}/{available_mem:.2f} GB occupied\n')
 
 
 if __name__ == '__main__':
