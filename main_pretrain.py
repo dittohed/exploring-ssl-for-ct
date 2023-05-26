@@ -152,7 +152,7 @@ def train_one_epoch(student, teacher, loss_fn, train_loader, iters_per_epoch,
             print(f'Loss is {loss.item()}, stopping training...')
             sys.exit(1)
 
-        utils.display_gpu_info()
+        # utils.display_gpu_info()
         
         # Backward pass
         batch_loss += loss.item()
