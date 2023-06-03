@@ -201,7 +201,7 @@ def main(args):
         feature_size=args.embedding_size,
         num_heads=(3, 3, 3, 3),  # TODO: [3, 6, 12, 24] originally
         use_checkpoint=args.use_gradient_checkpointing
-    )
+    ).to(device)
 
     # TODO: load from finetune checkpoint or ssl checkpoint
 
