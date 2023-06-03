@@ -7,7 +7,7 @@ import torch.nn as nn
 import torch.optim as optim
 
 from tqdm import tqdm
-from monai.data import DataLoader, Dataset
+from monai.data import DataLoader, Dataset, set_track_meta
 from monai.utils import set_determinism
 
 import src.utils as utils
@@ -23,7 +23,7 @@ def get_args_parser():
     parser = argparse.ArgumentParser('Pretrain CT')  # TODO: add_help?
 
     # Swin params
-    parser.add_argument('--embedding_size', default=48, type=int,
+    parser.add_argument('--embedding_size', default=24, type=int,  # TODO: back to 48
         help='Swin backbone base embedding size (C from the paper)')
     parser.add_argument('--dropout_path_rate', default=0.0, type=float,  # TODO: DINO used 0.1 for ViT
         help='TODO')
@@ -198,10 +198,11 @@ def train_one_epoch(student, teacher, loss_fn, train_loader, iters_per_epoch,
 def main(args):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     set_determinism(args.seed)
+    # TODO: set_track_meta(False)
 
     # Prepare data
     dataset = Dataset(data=get_ssl_data(args.data_dir), 
-                      transform=get_ssl_transforms(args))
+                      transform=get_ssl_transforms(args, device))
     data_loader = DataLoader(dataset, batch_size=args.batch_size_per_gpu)
     # TODO: num_workers
 

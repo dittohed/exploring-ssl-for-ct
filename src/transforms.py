@@ -12,7 +12,9 @@ from monai.transforms import (
     Compose,
     CropForegroundd,
     EnsureChannelFirstd,
+    EnsureTyped,
     ScaleIntensityRanged,
+    RandCropByPosNegLabeld,
     Orientationd,
     Spacingd,
     ToTensord
@@ -184,7 +186,7 @@ class IoUCropd(Randomizable, MapTransform):
         return vol_inter / vol_union
     
 
-def get_ssl_transforms(args):
+def get_ssl_transforms(args, device):
     transforms = Compose([
         LoadImaged(keys=['img']),
         EnsureChannelFirstd(keys=['img']),
@@ -195,9 +197,43 @@ def get_ssl_transforms(args):
         ScaleIntensityRanged(keys=['img'], a_min=args.a_min, a_max=args.a_max,
                              b_min=0.0, b_max=1.0, clip=True),
         CropForegroundd(keys=['img'], source_key='img'),
-        IoUCropd(keys=['img'], min_iou=args.min_iou, max_iou=args.max_iou),
+        EnsureTyped(keys=['img', 'label'], device=device, track_meta=False),
+        IoUCropd(keys=['img'], min_iou=args.min_iou, max_iou=args.max_iou)
         # TODO: put augmentations here
-        ToTensord(keys=['img1', 'img2'])
     ])
 
     return transforms
+
+
+def get_finetune_transforms(args, device):
+    base_transforms = [
+        LoadImaged(keys=['img', 'label']),
+        EnsureChannelFirstd(keys=['img', 'label']),
+        Orientationd(keys=['img', 'label'], axcodes='RAS'),
+        # TODO: double-check pixdim order below
+        Spacingd(keys=['img', 'label'], pixdim=(args.size_y, args.size_x, args.size_z), 
+                    mode=('bilinear', 'nearest')),
+        ScaleIntensityRanged(keys=['img'], a_min=args.a_min, a_max=args.a_max,
+                                b_min=0.0, b_max=1.0, clip=True),
+        CropForegroundd(keys=['img', 'label'], source_key='img'),
+        EnsureTyped(keys=['img', 'label'], device=device, track_meta=False)
+    ]
+
+    train_transforms = Compose([
+        *base_transforms,
+        RandCropByPosNegLabeld(  # TODO: doublecheck this transform
+            keys=['img', 'label'],
+            label_key='label',
+            spatial_size=(96, 96, 96),
+            pos=1,
+            neg=1,
+            num_samples=args.batch_size_per_gpu,
+            image_key='img',
+            image_threshold=0
+        )
+        # # TODO: put augmentations here
+    ])
+
+    val_transforms = Compose([*base_transforms])
+
+    return train_transforms, val_transforms
