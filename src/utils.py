@@ -69,6 +69,26 @@ def display_gpu_info():
     print(f'\nGPU: {occupied_mem:.2f}/{available_mem:.2f} GB occupied\n')
 
 
+class AverageAggregator():
+    """
+    Implements a method for calculating mean without storing all the values
+    explicitly.
+    """
+
+    def __init__(self):
+        self._avg = 0
+        self._count = 0
+
+    def update(self, val, n=1):
+        self._avg = (
+            (self._avg*self._count + val*n) / (self._count+n)
+        )
+        self._count += n
+
+    def item(self):
+        return self._avg
+
+
 if __name__ == '__main__':
     schedules = [
         cosine_scheduler(
