@@ -1,11 +1,13 @@
 import sys
 import math
 import argparse
+import wandb
 
 import torch
 import torch.optim as optim
 
 from functools import partial
+from pathlib import Path
 from tqdm import tqdm
 
 from monai.networks.nets import SwinUNETR
@@ -21,13 +23,14 @@ import src.utils as utils
 
 from src.loaders import get_finetune_data
 from src.transforms import get_finetune_transforms
+from src.callbacks import EarlyStopping, BestCheckpoint
 
 
 def get_args_parser():
     parser = argparse.ArgumentParser('Finetune CT')  # TODO: add_help?
 
     # Swin params
-    parser.add_argument('--embedding_size', default=24, type=int,  # TODO: back to 48
+    parser.add_argument('--embedding_size', default=12, type=int,  # TODO: back to 48
         help='Swin backbone base embedding size (C from the paper).')
     parser.add_argument('--use_gradient_checkpointing', action='store_true',  # TODO: could try
         help='Whether to use gradient checkpointing (saves memory, longer training).')
@@ -71,27 +74,30 @@ def get_args_parser():
         help='Weight decay throughout the whole training.')
     parser.add_argument('--sw_overlap', default=0.2, type=float,
         help='Sliding window inference overlap.')  # TODO: 0.5 might give better results
+    parser.add_argument('--patience', default=10, type=float,
+        help='How many epochs to wait for val metric to improve before terminating.')
 
     # Other params
+    parser.add_argument('--run_name', default='test', type=str,
+        help='Unique run/experiment name.')
+    parser.add_argument('--eval_every', default=1, type=int,
+        help='After how many epochs to evaluate.')
     parser.add_argument('--data_dir', default='./data/finetune', type=str,
         help='Path to training data directory.')
-    parser.add_argument('--output_dir', default='.', type=str, 
-        help='Path to save logs and checkpoints.')
-    parser.add_argument('--save_chkpt_every', default=20, type=int, 
-        help='How often to save model checkpoint.')
+    parser.add_argument('--chkpt_dir', default='./chkpts', type=str, 
+        help='Path to save checkpoints.')
     parser.add_argument('--seed', default=4294967295, type=int, 
         help='Random seed.')
     parser.add_argument('--num_workers', default=10, type=int, 
         help='Number of data loading workers per GPU.')
+    parser.add_argument('--use_wandb', action='store_true',
+        help='Whether to log training config and results to W&B.')
 
     return parser
 
 
 def train_one_epoch(model, loss_fn, train_loader, optimizer, lr_schedule, 
         epoch, fp16_scaler, device, args):
-    model.train()
-    batch_losses = []  # Per batch losses to track the training process
-
     tqdm_it = tqdm(train_loader, total=len(train_loader), leave=True)
     tqdm_it.set_description(f'Epoch: [{epoch+1}/{args.n_epochs}]')
 
@@ -122,13 +128,16 @@ def train_one_epoch(model, loss_fn, train_loader, optimizer, lr_schedule,
         optimizer.zero_grad()
 
         # Logging
-        batch_losses.append(loss.item())
         tqdm_it.set_postfix(
             loss=str(loss.item()), 
             lr=lr_schedule[step]
         )
 
-    return batch_losses
+        if args.use_wandb:
+            wandb.log({
+                'loss': loss.item(),
+                'lr': lr_schedule[step]
+            })
 
 
 @torch.no_grad()
@@ -154,6 +163,12 @@ def val_one_epoch(model, acc_fn, val_loader, post_label, post_pred,
         avg_agg.update(acc.item())
 
     print(f'Mean validation dice score: {avg_agg.item():.4f}')
+    if args.use_wandb:
+        wandb.log({
+            'val_dice': avg_agg.item()
+        })
+
+    return avg_agg.item()
 
 
 def main(args):
@@ -236,19 +251,44 @@ def main(args):
         overlap=args.sw_overlap
     )
 
+    bc = BestCheckpoint(
+        model=model, 
+        save_path=Path(args.chkpt_dir)/Path(args.run_name+'.pt')
+    )
+    es = EarlyStopping(args.patience)
+
     # Train
     for epoch in range(args.n_epochs):
+
         model.train()
         train_one_epoch(
             model, loss_fn, train_loader, optimizer, lr_schedule, 
-            epoch, None, device, args
-        )
-        model.eval()
-        val_one_epoch(model_infer, acc_fn, val_loader, post_label, post_pred,
-            None, device
-        )
-        
+            epoch, None, device, args)
+
+        if epoch % args.eval_every == 0:
+            model.eval()
+            val_score = val_one_epoch(model_infer, acc_fn, val_loader, 
+                                      post_label, post_pred,
+                                      None, device)
+            bc(val_score)
+            if es(val_score):
+                break
+
 
 if __name__ == '__main__':
     parser = get_args_parser()
-    main(parser.parse_args())
+    args = parser.parse_args()
+
+    if args.use_wandb:
+        wandb.login()
+        wandb.init(
+            project='exploring-ssl-for-ct',
+            name=args.run_name,
+            config=vars(args)
+        )
+
+    main(args)
+
+    if args.use_wandb:
+        wandb.finish()
+        
