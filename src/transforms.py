@@ -186,7 +186,7 @@ class IoUCropd(Randomizable, MapTransform):
         return vol_inter / vol_union
     
 
-def get_ssl_transforms(args, device):
+def get_ssl_transforms(args):
     transforms = Compose([
         LoadImaged(keys=['img']),
         EnsureChannelFirstd(keys=['img']),
@@ -197,7 +197,7 @@ def get_ssl_transforms(args, device):
         ScaleIntensityRanged(keys=['img'], a_min=args.a_min, a_max=args.a_max,
                              b_min=0.0, b_max=1.0, clip=True),
         CropForegroundd(keys=['img'], source_key='img'),
-        EnsureTyped(keys=['img', 'label'], device=device, track_meta=False),
+        EnsureTyped(keys=['img', 'label'], track_meta=False),
         IoUCropd(keys=['img'], min_iou=args.min_iou, max_iou=args.max_iou)
         # TODO: put augmentations here
     ])
@@ -205,7 +205,7 @@ def get_ssl_transforms(args, device):
     return transforms
 
 
-def get_finetune_transforms(args, device):
+def get_finetune_transforms(args):
     base_transforms = [
         LoadImaged(keys=['img', 'label']),
         EnsureChannelFirstd(keys=['img', 'label']),
@@ -216,7 +216,7 @@ def get_finetune_transforms(args, device):
         ScaleIntensityRanged(keys=['img'], a_min=args.a_min, a_max=args.a_max,
                                 b_min=0.0, b_max=1.0, clip=True),
         CropForegroundd(keys=['img', 'label'], source_key='img'),
-        EnsureTyped(keys=['img', 'label'], device=device, track_meta=False)
+        EnsureTyped(keys=['img', 'label'], track_meta=False)
     ]
 
     train_transforms = Compose([

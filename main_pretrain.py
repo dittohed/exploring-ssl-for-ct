@@ -202,7 +202,7 @@ def main(args):
 
     # Prepare data
     dataset = Dataset(data=get_ssl_data(args.data_dir), 
-                      transform=get_ssl_transforms(args, device))
+                      transform=get_ssl_transforms(args))
     data_loader = DataLoader(dataset, batch_size=args.batch_size_per_gpu)
     # TODO: num_workers
 

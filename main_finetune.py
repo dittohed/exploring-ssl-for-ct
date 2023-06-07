@@ -180,7 +180,7 @@ def main(args):
 
     # Prepare data
     train_data, val_data = get_finetune_data(args.data_dir)
-    train_transforms, val_transforms = get_finetune_transforms(args, device=device)
+    train_transforms, val_transforms = get_finetune_transforms(args)
 
     train_ds = CacheDataset(
         data=train_data, 
