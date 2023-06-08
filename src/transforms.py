@@ -17,6 +17,7 @@ from monai.transforms import (
     RandCropByPosNegLabeld,
     Orientationd,
     Spacingd,
+    SpatialPadd,
     ToTensord
 )
 
@@ -197,6 +198,7 @@ def get_ssl_transforms(args):
         ScaleIntensityRanged(keys=['img'], a_min=args.a_min, a_max=args.a_max,
                              b_min=0.0, b_max=1.0, clip=True),
         CropForegroundd(keys=['img'], source_key='img'),
+        SpatialPadd(keys=['img'], spatial_size=(96, 96, 96)),
         EnsureTyped(keys=['img', 'label'], track_meta=False),
         IoUCropd(keys=['img'], min_iou=args.min_iou, max_iou=args.max_iou)
         # TODO: put augmentations here
@@ -216,6 +218,7 @@ def get_finetune_transforms(args):
         ScaleIntensityRanged(keys=['img'], a_min=args.a_min, a_max=args.a_max,
                                 b_min=0.0, b_max=1.0, clip=True),
         CropForegroundd(keys=['img', 'label'], source_key='img'),
+        SpatialPadd(keys=['img', 'label'], spatial_size=(96, 96, 96)),
         EnsureTyped(keys=['img', 'label'], track_meta=False)
     ]
 
