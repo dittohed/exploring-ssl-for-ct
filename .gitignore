@@ -2,5 +2,6 @@ data/
 .vscode
 __pycache__
 .ipynb_checkpoints
-wandb
-chkpts
+wandb/
+chkpts/
+out/

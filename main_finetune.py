@@ -98,6 +98,7 @@ def get_args_parser():
 
 def train_one_epoch(model, loss_fn, train_loader, optimizer, lr_schedule, 
         epoch, fp16_scaler, device, args):
+    avg_agg = utils.AverageAggregator()
     tqdm_it = tqdm(train_loader, total=len(train_loader), leave=True)
     tqdm_it.set_description(f'Epoch: [{epoch+1}/{args.n_epochs}]')
 
@@ -132,12 +133,13 @@ def train_one_epoch(model, loss_fn, train_loader, optimizer, lr_schedule,
             loss=str(loss.item()), 
             lr=lr_schedule[step]
         )
+        avg_agg.update(loss.item())
 
-        if args.use_wandb:
-            wandb.log({
-                'loss': loss.item(),
-                'lr': lr_schedule[step]
-            })
+    log_dict = {
+        'train/loss': avg_agg.item(),
+        'train/lr': lr_schedule[step]
+    }
+    return log_dict
 
 
 @torch.no_grad()
@@ -162,13 +164,11 @@ def val_one_epoch(model, acc_fn, val_loader, post_label, post_pred,
         assert not_nans == 1  # TODO: be careful for multiple GPUs
         avg_agg.update(acc.item())
 
-    print(f'Mean validation dice score: {avg_agg.item():.4f}')
-    if args.use_wandb:
-        wandb.log({
-            'val_dice': avg_agg.item()
-        })
-
-    return avg_agg.item()
+    print(f'Mean validation dice score: {avg_agg.item():.4f}.')
+    log_dict = {
+        'val/dice': avg_agg.item()
+    }
+    return log_dict
 
 
 def main(args):
@@ -261,18 +261,23 @@ def main(args):
     for epoch in range(args.n_epochs):
 
         model.train()
-        train_one_epoch(
+        log_dict = train_one_epoch(
             model, loss_fn, train_loader, optimizer, lr_schedule, 
             epoch, None, device, args)
 
-        if epoch % args.eval_every == 0:
+        if (epoch+1) % args.eval_every == 0:
             model.eval()
-            val_score = val_one_epoch(model_infer, acc_fn, val_loader, 
+            val_log_dict = val_one_epoch(model_infer, acc_fn, val_loader, 
                                       post_label, post_pred,
                                       None, device)
-            bc(val_score)
-            if es(val_score):
+            bc(val_log_dict['val/dice'])
+            if es(val_log_dict['val/dice']):
                 break
+
+            log_dict.update(val_log_dict)
+
+        if args.use_wandb:
+            wandb.log(log_dict)
 
 
 if __name__ == '__main__':
@@ -286,9 +291,8 @@ if __name__ == '__main__':
             name=args.run_name,
             config=vars(args)
         )
+        wandb.define_metric('train/loss', summary='min')
+        wandb.define_metric('val/dice', summary='max')
 
     main(args)
-
-    if args.use_wandb:
-        wandb.finish()
         
