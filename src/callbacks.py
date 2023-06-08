@@ -12,7 +12,7 @@ class EarlyStopping():
         if score <= self._best_score:
             self._counter += 1
             if self._counter == self._patience:
-                print(f'Score has not increased from {self._best_score} for {self._patience} epoch(s).')
+                print(f'Score has not increased from {self._best_score} for {self._patience} eval steps.')
                 self._terminate = True
         else:
             self._best_score = score
