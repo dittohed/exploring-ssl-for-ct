@@ -16,4 +16,4 @@ def get_finetune_data(data_dir: str):
     data = [{'img': img_path, 'label': label_path} 
         for img_path, label_path in zip(img_paths, label_paths)]
 
-    return data[:40], data[40:]  # TODO: use true split
+    return data[:30], data[30:31]  # TODO: use true split
