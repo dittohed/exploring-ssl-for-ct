@@ -285,7 +285,6 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if args.use_wandb:
-        wandb.login()
         wandb.init(
             project='exploring-ssl-for-ct',
             name=args.run_name,
