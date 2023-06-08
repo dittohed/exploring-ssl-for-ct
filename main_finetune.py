@@ -48,8 +48,8 @@ def get_args_parser():
         help='Pixel size in y direction.')
     parser.add_argument('--size_z', default=2.0, type=float, 
         help='Pixel size in z direction.')
-    parser.add_argument('--cache_num', default=4, type=float,  # TODO: back to 24
-        help='`cache_num` in monai.data.CacheDataset.')
+    parser.add_argument('--cache_rate', default=1.0, type=float,
+        help='`cache_rate` in monai.data.CacheDataset objects.')
     parser.add_argument('--n_classes', default=14, type=int,
         help='Number of segmentation classes (= number of output channels).')
 
@@ -174,6 +174,7 @@ def val_one_epoch(model, acc_fn, val_loader, post_label, post_pred,
 def main(args):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     set_determinism(args.seed)
+    torch.backends.cudnn.benchmark = True
     # set_track_meta(False)
     # TODO: see if this will still cause problems if using for uncached samples
     # and moved after train_ds and val_ds construction
@@ -185,7 +186,7 @@ def main(args):
     train_ds = CacheDataset(
         data=train_data, 
         transform=train_transforms,
-        cache_num=args.cache_num,
+        cache_rate=args.cache_rate,
         num_workers=8  # TODO: check optimal
     )
     train_loader = ThreadDataLoader(
@@ -198,7 +199,7 @@ def main(args):
     val_ds = CacheDataset(
         data=val_data, 
         transform=val_transforms,
-        cache_num=args.cache_num//2,
+        cache_rate=args.cache_rate,
         num_workers=8//2  # TODO: check optimal
     )
     val_loader = ThreadDataLoader(
