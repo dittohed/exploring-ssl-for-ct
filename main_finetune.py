@@ -65,10 +65,10 @@ def get_args_parser():
         help='Batch size for sliding window inference.')
     parser.add_argument('--n_epochs', default=5000, type=int, 
         help='Number of epochs of training.')
-    parser.add_argument('--base_lr', default=1e-4, type=float, 
+    parser.add_argument('--base_lr', default=1e-3, type=float, 
         help='''Learning rate at the end of linear warmup (highest used during 
         training).''')
-    parser.add_argument('--warmup_epochs', default=50, type=int,
+    parser.add_argument('--warmup_epochs', default=10, type=int,
         help='Number of epochs for the linear learning-rate warm up.')
     parser.add_argument('--wd', type=float, default=1e-5, 
         help='Weight decay throughout the whole training.')
