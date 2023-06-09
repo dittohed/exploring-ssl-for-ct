@@ -1,4 +1,6 @@
-data/
+imgs/
+labels/
+ssl/
 .vscode
 __pycache__
 .ipynb_checkpoints
