@@ -49,15 +49,15 @@ def get_args_parser():
     # Data params
     parser.add_argument('--spatial_dims', default=3, type=int, 
         help='Spatial dimension of input data, either 2 for 2D or 3 for 3D')
-    parser.add_argument('--a_min', default=-1000, type=float, 
+    parser.add_argument('--a_min', default=-500, type=float, 
         help='`a_min` in monai.transforms.ScaleIntensityRanged')
-    parser.add_argument('--a_max', default=1000, type=float, 
+    parser.add_argument('--a_max', default=500, type=float, 
         help='`a_max` in monai.transforms.ScaleIntensityRanged')
-    parser.add_argument('--size_x', default=1.5, type=float, 
+    parser.add_argument('--size_x', default=1, type=float, 
         help='Pixel size in x direction')
-    parser.add_argument('--size_y', default=1.5, type=float, 
+    parser.add_argument('--size_y', default=1, type=float, 
         help='Pixel size in y direction')
-    parser.add_argument('--size_z', default=2.0, type=float, 
+    parser.add_argument('--size_z', default=2.5, type=float, 
         help='Pixel size in z direction')
     parser.add_argument('--min_iou', default=0, type=float, 
         help='Min. IoU of the 2nd crop with the 1st crop')

@@ -38,15 +38,15 @@ def get_args_parser():
     # Data params
     parser.add_argument('--spatial_dims', default=3, type=int, 
         help='Spatial dimension of input data, either 2 for 2D or 3 for 3D.')
-    parser.add_argument('--a_min', default=-175, type=float, 
+    parser.add_argument('--a_min', default=-500, type=float, 
         help='`a_min` in monai.transforms.ScaleIntensityRanged.')
-    parser.add_argument('--a_max', default=250, type=float, 
+    parser.add_argument('--a_max', default=500, type=float, 
         help='`a_max` in monai.transforms.ScaleIntensityRanged.')
-    parser.add_argument('--size_x', default=1.5, type=float, 
+    parser.add_argument('--size_x', default=1, type=float, 
         help='Pixel size in x direction.')
-    parser.add_argument('--size_y', default=1.5, type=float, 
+    parser.add_argument('--size_y', default=1, type=float, 
         help='Pixel size in y direction.')
-    parser.add_argument('--size_z', default=2.0, type=float, 
+    parser.add_argument('--size_z', default=2.5, type=float, 
         help='Pixel size in z direction.')
     parser.add_argument('--cache_rate', default=1.0, type=float,
         help='`cache_rate` in monai.data.CacheDataset objects.')
@@ -72,15 +72,15 @@ def get_args_parser():
         help='Number of epochs for the linear learning-rate warm up.')
     parser.add_argument('--wd', type=float, default=1e-5, 
         help='Weight decay throughout the whole training.')
-    parser.add_argument('--sw_overlap', default=0.2, type=float,
-        help='Sliding window inference overlap.')  # TODO: 0.5 might give better results
+    parser.add_argument('--sw_overlap', default=0.5, type=float,
+        help='Sliding window inference overlap.')
     parser.add_argument('--patience', default=10, type=float,
         help='How many epochs to wait for val metric to improve before terminating.')
 
     # Other params
     parser.add_argument('--run_name', default='test', type=str,
         help='Unique run/experiment name.')
-    parser.add_argument('--eval_every', default=1, type=int,
+    parser.add_argument('--eval_every', default=10, type=int,
         help='After how many epochs to evaluate.')
     parser.add_argument('--data_dir', default='./data/finetune', type=str,
         help='Path to training data directory.')

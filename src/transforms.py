@@ -192,7 +192,6 @@ def get_ssl_transforms(args):
         LoadImaged(keys=['img']),
         EnsureChannelFirstd(keys=['img']),
         Orientationd(keys=['img'], axcodes='RAS'),
-        # TODO: double-check pixdim order below
         Spacingd(keys=['img'], pixdim=(args.size_y, args.size_x, args.size_z), 
                  mode=('bilinear')),
         ScaleIntensityRanged(keys=['img'], a_min=args.a_min, a_max=args.a_max,
@@ -212,8 +211,7 @@ def get_finetune_transforms(args):
         LoadImaged(keys=['img', 'label']),
         EnsureChannelFirstd(keys=['img', 'label']),
         Orientationd(keys=['img', 'label'], axcodes='RAS'),
-        # TODO: double-check pixdim order below
-        Spacingd(keys=['img', 'label'], pixdim=(args.size_y, args.size_x, args.size_z), 
+        Spacingd(keys=['img', 'label'], pixdim=(args.size_y, args.size_x, args.size_z),
                     mode=('bilinear', 'nearest')),
         ScaleIntensityRanged(keys=['img'], a_min=args.a_min, a_max=args.a_max,
                                 b_min=0.0, b_max=1.0, clip=True),
