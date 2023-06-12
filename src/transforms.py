@@ -263,7 +263,6 @@ def get_finetune_transforms(args):
             min_zoom=0.8, 
             max_zoom=1.2, 
             mode=('trilinear', 'nearest'),
-            align_corners=True,
             prob=0.15
         ),
         T.RandCropByPosNegLabeld(
