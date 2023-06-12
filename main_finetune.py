@@ -81,7 +81,7 @@ def get_args_parser():
     parser.add_argument('--run_name', default='test', type=str,
         help='Unique run/experiment name.')
     parser.add_argument('--eval_every', default=10, type=int,
-        help='After how many epochs to evaluate.')
+        help='After how many epochs to evaluate in the training cycle.')
     parser.add_argument('--data_dir', default='./data/finetune', type=str,
         help='Path to training data directory.')
     parser.add_argument('--chkpt_dir', default='./chkpts', type=str, 
