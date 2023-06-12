@@ -27,10 +27,10 @@ from src.callbacks import EarlyStopping, BestCheckpoint
 
 
 def get_args_parser():
-    parser = argparse.ArgumentParser('Finetune CT')  # TODO: add_help?
+    parser = argparse.ArgumentParser('Finetune CT')
 
     # Swin params
-    parser.add_argument('--embedding_size', default=12, type=int,  # TODO: back to 48
+    parser.add_argument('--embedding_size', default=48, type=int,
         help='Swin backbone base embedding size (C from the paper).')
     parser.add_argument('--use_gradient_checkpointing', action='store_true',  # TODO: could try
         help='Whether to use gradient checkpointing (saves memory, longer training).')
@@ -59,9 +59,9 @@ def get_args_parser():
         Improves training time and memory requirements, but can provoke instability 
         and slight decay of performance. We recommend disabling mixed precision if 
         the loss is unstable, if reducing the patch size or if training with bigger ViTs.''')
-    parser.add_argument('--batch_size_per_gpu', default=1, type=int,  # TODO: back to 2
+    parser.add_argument('--batch_size_per_gpu', default=2, type=int,
         help='`num_samples` in monai.transforms.RandCropByPosNegLabeld (per GPU).')
-    parser.add_argument('--sw_batch_size', default=2, type=int,  # TODO: back to 4
+    parser.add_argument('--sw_batch_size', default=4, type=int,
         help='Batch size for sliding window inference.')
     parser.add_argument('--n_epochs', default=5000, type=int, 
         help='Number of epochs of training.')
@@ -75,7 +75,7 @@ def get_args_parser():
     parser.add_argument('--sw_overlap', default=0.5, type=float,
         help='Sliding window inference overlap.')
     parser.add_argument('--patience', default=10, type=float,
-        help='How many epochs to wait for val metric to improve before terminating.')
+        help='How many evals to wait for val metric to improve before terminating.')
 
     # Other params
     parser.add_argument('--run_name', default='test', type=str,
@@ -92,6 +92,8 @@ def get_args_parser():
         help='Number of data loading workers per GPU.')
     parser.add_argument('--use_wandb', action='store_true',
         help='Whether to log training config and results to W&B.')
+    parser.add_argument('--low_resource_mode', action='store_true',
+        help='Whether to limit memory footprint for minor tests.')
 
     return parser
 
@@ -214,7 +216,7 @@ def main(args):
         in_channels=1,
         out_channels=args.n_classes,
         feature_size=args.embedding_size,
-        num_heads=(3, 3, 3, 3),  # TODO: [3, 6, 12, 24] originally
+        num_heads=(3, 3, 3, 3) if args.low_resource_mode else (3, 6, 12, 24),
         use_checkpoint=args.use_gradient_checkpointing
     ).to(device)
 
@@ -283,6 +285,12 @@ def main(args):
 if __name__ == '__main__':
     parser = get_args_parser()
     args = parser.parse_args()
+
+    if args.low_resource_mode:
+        args.embedding_size = 12
+        args.cache_rate = 0
+        args.batch_size_per_gpu = 1
+        args.sw_batch_size = 1
 
     if args.use_wandb:
         wandb.init(
