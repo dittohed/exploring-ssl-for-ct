@@ -4,27 +4,12 @@ from typing import Optional
 
 from monai.config import KeysCollection
 from monai.utils import first
-from monai.transforms import (
-    Crop,
-    Randomizable,
-    MapTransform,
-    LoadImaged,
-    Compose,
-    CropForegroundd,
-    EnsureChannelFirstd,
-    EnsureTyped,
-    ScaleIntensityRanged,
-    RandCropByPosNegLabeld,
-    Orientationd,
-    Spacingd,
-    SpatialPadd,
-    ToTensord
-)
+import monai.transforms as T
 
 
 # TODO: doublecheck, verify there's no coords issue
 # TODO: add type hints and args
-class IoUCropd(Randomizable, MapTransform):
+class IoUCropd(T.Randomizable, T.MapTransform):
     """
     MONAI-style transformation implementing IoU-based cropping.
 
@@ -55,7 +40,7 @@ class IoUCropd(Randomizable, MapTransform):
         self._min_iou = min_iou
         self._max_iou = max_iou
         self._debug = debug
-        self._cropper = Crop()
+        self._cropper = T.Crop()
 
     def set_random_state(
         self, seed: Optional[int] = None, state: Optional[np.random.RandomState] = None
@@ -188,18 +173,47 @@ class IoUCropd(Randomizable, MapTransform):
     
 
 def get_ssl_transforms(args):
-    transforms = Compose([
-        LoadImaged(keys=['img']),
-        EnsureChannelFirstd(keys=['img']),
-        Orientationd(keys=['img'], axcodes='RAS'),
-        Spacingd(keys=['img'], pixdim=(args.size_y, args.size_x, args.size_z), 
-                 mode=('bilinear')),
-        ScaleIntensityRanged(keys=['img'], a_min=args.a_min, a_max=args.a_max,
-                             b_min=0.0, b_max=1.0, clip=True),
-        CropForegroundd(keys=['img'], source_key='img'),
-        SpatialPadd(keys=['img'], spatial_size=(96, 96, 96)),
-        EnsureTyped(keys=['img', 'label'], track_meta=False),
-        IoUCropd(keys=['img'], min_iou=args.min_iou, max_iou=args.max_iou)
+    transforms = T.Compose([
+        T.LoadImaged(
+            keys=['img']
+        ),
+        T.EnsureChannelFirstd(
+            keys=['img']
+        ),
+        T.Orientationd(
+            keys=['img'], 
+            axcodes='RAS'
+        ),
+        T.Spacingd(
+            keys=['img'], 
+            pixdim=(args.size_y, args.size_x, args.size_z), 
+            mode=('bilinear')
+        ),
+        T.ScaleIntensityRanged(
+            keys=['img'], 
+            a_min=args.a_min, 
+            a_max=args.a_max,
+            b_min=0.0, 
+            b_max=1.0, 
+            clip=True
+        ),
+        T.CropForegroundd(
+            keys=['img'], 
+            source_key='img'
+        ),
+        T.SpatialPadd(
+            keys=['img'], 
+            spatial_size=(96, 96, 96)
+        ),
+        T.EnsureTyped(
+            keys=['img'], 
+            track_meta=False
+        ),
+        IoUCropd(
+            keys=['img'], 
+            min_iou=args.min_iou, 
+            max_iou=args.max_iou
+        )
         # TODO: put augmentations here
     ])
 
@@ -208,21 +222,51 @@ def get_ssl_transforms(args):
 
 def get_finetune_transforms(args):
     base_transforms = [
-        LoadImaged(keys=['img', 'label']),
-        EnsureChannelFirstd(keys=['img', 'label']),
-        Orientationd(keys=['img', 'label'], axcodes='RAS'),
-        Spacingd(keys=['img', 'label'], pixdim=(args.size_y, args.size_x, args.size_z),
-                    mode=('bilinear', 'nearest')),
-        ScaleIntensityRanged(keys=['img'], a_min=args.a_min, a_max=args.a_max,
-                                b_min=0.0, b_max=1.0, clip=True),
-        CropForegroundd(keys=['img', 'label'], source_key='img'),
-        SpatialPadd(keys=['img', 'label'], spatial_size=(96, 96, 96)),
-        EnsureTyped(keys=['img', 'label'], track_meta=False)
+        T.LoadImaged(
+            keys=['img', 'label']
+        ),
+        T.EnsureChannelFirstd(
+            keys=['img', 'label']
+        ),
+        T.Orientationd(
+            keys=['img', 'label'], 
+            axcodes='RAS'
+        ),
+        T.Spacingd(
+            keys=['img', 'label'], 
+            pixdim=(args.size_y, args.size_x, args.size_z),
+            mode=('bilinear', 'nearest')
+        ),
+        T.ScaleIntensityRanged(
+            keys=['img'], 
+            a_min=args.a_min, a_max=args.a_max,
+            b_min=0.0, b_max=1.0, clip=True
+        ),
+        T.CropForegroundd(
+            keys=['img', 'label'], 
+            source_key='img'
+        ),
+        T.SpatialPadd(
+            keys=['img', 'label'], 
+            spatial_size=(96, 96, 96)
+        ),
+        T.EnsureTyped(
+            keys=['img', 'label'], 
+            track_meta=False
+        )
     ]
 
-    train_transforms = Compose([
+    train_transforms = T.Compose([
         *base_transforms,
-        RandCropByPosNegLabeld(  # TODO: doublecheck this transform
+        T.RandZoomd(
+            keys=['img', 'label'], 
+            min_zoom=0.8, 
+            max_zoom=1.2, 
+            mode=('trilinear', 'nearest'),
+            align_corners=True,
+            prob=0.15
+        ),
+        T.RandCropByPosNegLabeld(
             keys=['img', 'label'],
             label_key='label',
             spatial_size=(96, 96, 96),
@@ -231,10 +275,48 @@ def get_finetune_transforms(args):
             num_samples=args.batch_size_per_gpu,
             image_key='img',
             image_threshold=0
+        ),
+        T.RandGaussianSmoothd(
+            keys=['img'],
+            prob=0.15
+        ),
+        T.RandScaleIntensityd(
+            keys=['img'], 
+            factors=0.1, 
+            prob=0.15
+        ),
+        T.RandShiftIntensityd(
+            keys=['img'], 
+            offsets=0.1, 
+            prob=0.15
+        ),
+        T.RandGaussianNoised(
+            keys=['img'],
+            std=0.01,
+            prob=0.15
+        ),
+        T.RandFlipd(
+            keys=['img', 'label'], 
+            spatial_axis=0,
+            prob=0.25
+        ),
+        T.RandFlipd(
+            keys=['img', 'label'], 
+            spatial_axis=1,
+            prob=0.25
+        ),
+        T.RandFlipd(
+            keys=['img', 'label'], 
+            spatial_axis=2,
+            prob=0.25
+        ),
+        T.RandRotate90d(
+            keys=['img', 'label'], 
+            max_k=3,
+            prob=0.25
         )
-        # # TODO: put augmentations here
     ])
 
-    val_transforms = Compose([*base_transforms])
+    val_transforms = T.Compose([*base_transforms])
 
     return train_transforms, val_transforms
