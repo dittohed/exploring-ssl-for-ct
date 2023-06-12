@@ -1,4 +1,5 @@
 import sys
+import shutil
 import math
 import argparse
 import wandb
@@ -12,7 +13,9 @@ from tqdm import tqdm
 
 from monai.networks.nets import SwinUNETR
 from monai.losses import DiceCELoss
-from monai.data import ThreadDataLoader, CacheDataset, set_track_meta, decollate_batch
+from monai.data import (
+    ThreadDataLoader, CacheDataset, PersistentDataset, 
+    set_track_meta, decollate_batch)
 from monai.inferers import sliding_window_inference
 from monai.metrics import DiceMetric
 from monai.transforms import AsDiscrete
@@ -50,6 +53,9 @@ def get_args_parser():
         help='Pixel size in z direction.')
     parser.add_argument('--cache_rate', default=1.0, type=float,
         help='`cache_rate` in monai.data.CacheDataset objects.')
+    parser.add_argument('--use_persistence', action='store_true',
+        help='''Whether to use monai.data.PersistentDataset instead of 
+        monai.data.CacheDataset.''')
     parser.add_argument('--n_classes', default=14, type=int,
         help='Number of segmentation classes (= number of output channels).')
 
@@ -85,7 +91,9 @@ def get_args_parser():
     parser.add_argument('--data_dir', default='./data/finetune', type=str,
         help='Path to training data directory.')
     parser.add_argument('--chkpt_dir', default='./chkpts', type=str, 
-        help='Path to save checkpoints.')
+        help='Path to checkpoints directory.')
+    parser.add_argument('--cache_dir', default='./cache', type=str, 
+        help='`cache_dir` in monai.data.PersistentDataset objects.')
     parser.add_argument('--seed', default=4294967295, type=int, 
         help='Random seed.')
     parser.add_argument('--num_workers', default=10, type=int, 
@@ -184,24 +192,37 @@ def main(args):
     train_data, val_data = get_finetune_data(args.data_dir)
     train_transforms, val_transforms = get_finetune_transforms(args)
 
-    train_ds = CacheDataset(
-        data=train_data, 
-        transform=train_transforms,
-        cache_rate=args.cache_rate,
-        num_workers=8  # TODO: check optimal
-    )
+    if args.use_persistence:
+        Path(args.cache_dir).mkdir(parents=True, exist_ok=True)
+        train_ds = PersistentDataset(
+            data=train_data, 
+            transform=train_transforms,
+            cache_dir=args.cache_dir
+        )
+        val_ds = PersistentDataset(
+            data=val_data, 
+            transform=val_transforms,
+            cache_dir=args.cache_dir
+        )
+    else:
+        train_ds = CacheDataset(
+            data=train_data, 
+            transform=train_transforms,
+            cache_rate=args.cache_rate,
+            num_workers=8  # TODO: check optimal
+        )
+        val_ds = CacheDataset(
+            data=val_data, 
+            transform=val_transforms,
+            cache_rate=args.cache_rate,
+            num_workers=8//2  # TODO: check optimal
+        )
+    
     train_loader = ThreadDataLoader(
         train_ds, 
         num_workers=0,
         batch_size=1, 
         shuffle=True
-    )
-
-    val_ds = CacheDataset(
-        data=val_data, 
-        transform=val_transforms,
-        cache_rate=args.cache_rate,
-        num_workers=8//2  # TODO: check optimal
     )
     val_loader = ThreadDataLoader(
         val_ds, 
@@ -302,4 +323,6 @@ if __name__ == '__main__':
         wandb.define_metric('val/dice', summary='max')
 
     main(args)
-        
+
+    if args.use_persistence:
+        shutil.rmtree(Path(args.cache_dir))
