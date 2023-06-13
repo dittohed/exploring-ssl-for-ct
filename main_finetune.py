@@ -309,7 +309,6 @@ if __name__ == '__main__':
 
     if args.low_resource_mode:
         args.embedding_size = 12
-        args.cache_rate = 0
         args.batch_size_per_gpu = 1
         args.sw_batch_size = 1
 
