@@ -214,7 +214,14 @@ def get_ssl_transforms(args):
             min_iou=args.min_iou, 
             max_iou=args.max_iou
         )
-        # TODO: put augmentations here
+        # TODO: put augmentations here, including zoom?
+        # T.RandZoomd(
+        #     keys=['img', 'label'], 
+        #     min_zoom=0.8, 
+        #     max_zoom=1.2, 
+        #     mode=('trilinear', 'nearest'),
+        #     prob=0.15
+        # )
     ])
 
     return transforms
@@ -249,22 +256,21 @@ def get_finetune_transforms(args, device):
         T.SpatialPadd(
             keys=['img', 'label'], 
             spatial_size=(96, 96, 96)
-        ),
-        T.EnsureTyped(
-            keys=['img', 'label'], 
-            track_meta=False,
-            device=device
         )
     ]
 
     train_transforms = T.Compose([
         *base_transforms,
-        T.RandZoomd(
+        T.FgBgToIndicesd(
+            keys='label',
+            fg_postfix='_fg',
+            bg_postfix='_bg',
+            image_key='img',
+        ),
+        T.EnsureTyped(
             keys=['img', 'label'], 
-            min_zoom=0.8, 
-            max_zoom=1.2, 
-            mode=('trilinear', 'nearest'),
-            prob=0.15
+            track_meta=False,
+            device=device
         ),
         T.RandCropByPosNegLabeld(
             keys=['img', 'label'],
@@ -273,8 +279,8 @@ def get_finetune_transforms(args, device):
             pos=1,
             neg=1,
             num_samples=args.batch_size_per_gpu,
-            image_key='img',
-            image_threshold=0
+            fg_indices_key='label_fg',
+            bg_indices_key='label_bg'
         ),
         T.RandGaussianSmoothd(
             keys=['img'],
@@ -317,6 +323,13 @@ def get_finetune_transforms(args, device):
         )
     ])
 
-    val_transforms = T.Compose([*base_transforms])
+    val_transforms = T.Compose([
+        *base_transforms,
+        T.EnsureTyped(
+            keys=['img', 'label'], 
+            track_meta=False,
+            device=device
+        )
+    ])
 
     return train_transforms, val_transforms

@@ -209,13 +209,15 @@ def main(args):
             data=train_data, 
             transform=train_transforms,
             cache_rate=args.cache_rate,
-            num_workers=8  # TODO: check optimal
+            num_workers=8,  # TODO: check optimal
+            copy_cache=False  # RandCropByPosNegLabeld creates deep copy anyway
         )
         val_ds = CacheDataset(
             data=val_data, 
             transform=val_transforms,
             cache_rate=args.cache_rate,
-            num_workers=8//2  # TODO: check optimal
+            num_workers=8//2,  # TODO: check optimal
+            copy_cache=False  # Not modified anyway
         )
     
     train_loader = ThreadDataLoader(
