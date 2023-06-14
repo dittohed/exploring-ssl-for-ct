@@ -60,11 +60,8 @@ def get_args_parser():
         help='Number of segmentation classes (= number of output channels).')
 
     # Training params
-    parser.add_argument('--use_fp16', action='store_true',
-        help='''Whether or not to use half precision for training. 
-        Improves training time and memory requirements, but can provoke instability 
-        and slight decay of performance. We recommend disabling mixed precision if 
-        the loss is unstable, if reducing the patch size or if training with bigger ViTs.''')
+    parser.add_argument('--use_amp', action='store_true',
+        help='Whether to use AMP for training.')
     parser.add_argument('--batch_size_per_gpu', default=2, type=int,
         help='`num_samples` in monai.transforms.RandCropByPosNegLabeld (per GPU).')
     parser.add_argument('--sw_batch_size', default=4, type=int,
@@ -107,7 +104,7 @@ def get_args_parser():
 
 
 def train_one_epoch(model, loss_fn, train_loader, optimizer, lr_schedule, 
-        epoch, fp16_scaler, args):
+        epoch, scaler, args):
     avg_agg = utils.AverageAggregator()
     tqdm_it = tqdm(train_loader, total=len(train_loader), leave=True)
     tqdm_it.set_description(f'Epoch: [{epoch+1}/{args.n_epochs}]')
@@ -117,7 +114,7 @@ def train_one_epoch(model, loss_fn, train_loader, optimizer, lr_schedule,
         img, label = data_dict['img'], data_dict['label']
 
         # Forward pass
-        with torch.cuda.amp.autocast(fp16_scaler is not None):
+        with torch.cuda.amp.autocast(enabled=(scaler is not None)):
             pred = model(img)
             loss = loss_fn(pred, label)
 
@@ -126,16 +123,20 @@ def train_one_epoch(model, loss_fn, train_loader, optimizer, lr_schedule,
             sys.exit(1)
 
         # utils.display_gpu_info()
-        
-        # Backward pass
-        loss.backward()
 
         # Optimize
         step = len(train_loader) * epoch + batch_idx  # Calculate global step number
         for param_group in optimizer.param_groups:
             param_group['lr'] = lr_schedule[step]
 
-        optimizer.step()
+        if args.use_amp:
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
+        else:
+            loss.backward()
+            optimizer.step()
+        
         optimizer.zero_grad()
 
         # Logging
@@ -154,13 +155,13 @@ def train_one_epoch(model, loss_fn, train_loader, optimizer, lr_schedule,
 
 @torch.no_grad()
 def val_one_epoch(model, acc_fn, val_loader, post_label, post_pred,
-        fp16_scaler):
+        scaler):
     avg_agg = utils.AverageAggregator()
 
     for data_dict in val_loader:
         img, label = data_dict['img'], data_dict['label']
 
-        with torch.cuda.amp.autocast(fp16_scaler is not None):
+        with torch.cuda.amp.autocast(enabled=(scaler is not None)):
             pred = model(img)
 
         label_list = decollate_batch(label)
@@ -260,6 +261,8 @@ def main(args):
         warmup_epochs=args.warmup_epochs
     )
 
+    scaler = torch.cuda.amp.GradScaler() if args.use_amp else None
+
     # Prepare other stuff for validation
     acc_fn = DiceMetric(include_background=True, reduction=MetricReduction.MEAN, get_not_nans=True)
     post_label = AsDiscrete(to_onehot=args.n_classes)
@@ -285,12 +288,12 @@ def main(args):
         model.train()
         log_dict = train_one_epoch(
             model, loss_fn, train_loader, optimizer, lr_schedule, 
-            epoch, None, args)
+            epoch, scaler, args)
 
         if (epoch+1) % args.eval_every == 0:
             model.eval()
             val_log_dict = val_one_epoch(
-                model_infer, acc_fn, val_loader, post_label, post_pred, None
+                model_infer, acc_fn, val_loader, post_label, post_pred, scaler
             )
             bc(val_log_dict['val/dice'])
             if es(val_log_dict['val/dice']):
@@ -322,5 +325,5 @@ if __name__ == '__main__':
 
     main(args)
 
-    if args.use_persistence:
+    if args.use_persistence:  # TODO: remove, should be shared between runs 
         shutil.rmtree(Path(args.cache_dir))
