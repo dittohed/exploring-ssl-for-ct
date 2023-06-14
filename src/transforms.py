@@ -205,7 +205,7 @@ def get_ssl_transforms(args):
             keys=['img'], 
             spatial_size=(96, 96, 96)
         ),
-        T.EnsureTyped(
+        T.EnsureTyped(  # TODO: swap with IoUCropd and add to device?
             keys=['img'], 
             track_meta=False
         ),
@@ -220,7 +220,7 @@ def get_ssl_transforms(args):
     return transforms
 
 
-def get_finetune_transforms(args):
+def get_finetune_transforms(args, device):
     base_transforms = [
         T.LoadImaged(
             keys=['img', 'label']
@@ -252,7 +252,8 @@ def get_finetune_transforms(args):
         ),
         T.EnsureTyped(
             keys=['img', 'label'], 
-            track_meta=False
+            track_meta=False,
+            device=device
         )
     ]
 

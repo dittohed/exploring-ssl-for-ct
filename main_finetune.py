@@ -107,14 +107,14 @@ def get_args_parser():
 
 
 def train_one_epoch(model, loss_fn, train_loader, optimizer, lr_schedule, 
-        epoch, fp16_scaler, device, args):
+        epoch, fp16_scaler, args):
     avg_agg = utils.AverageAggregator()
     tqdm_it = tqdm(train_loader, total=len(train_loader), leave=True)
     tqdm_it.set_description(f'Epoch: [{epoch+1}/{args.n_epochs}]')
 
     for batch_idx, data_dict in enumerate(tqdm_it):
         # Prepare input
-        img, label = data_dict['img'].to(device), data_dict['label'].to(device)
+        img, label = data_dict['img'], data_dict['label']
 
         # Forward pass
         with torch.cuda.amp.autocast(fp16_scaler is not None):
@@ -154,11 +154,11 @@ def train_one_epoch(model, loss_fn, train_loader, optimizer, lr_schedule,
 
 @torch.no_grad()
 def val_one_epoch(model, acc_fn, val_loader, post_label, post_pred,
-        fp16_scaler, device):
+        fp16_scaler):
     avg_agg = utils.AverageAggregator()
 
     for data_dict in val_loader:
-        img, label = data_dict['img'].to(device), data_dict['label'].to(device)
+        img, label = data_dict['img'], data_dict['label']
 
         with torch.cuda.amp.autocast(fp16_scaler is not None):
             pred = model(img)
@@ -190,7 +190,7 @@ def main(args):
 
     # Prepare data
     train_data, val_data = get_finetune_data(args.data_dir)
-    train_transforms, val_transforms = get_finetune_transforms(args)
+    train_transforms, val_transforms = get_finetune_transforms(args, device)
 
     if args.use_persistence:
         Path(args.cache_dir).mkdir(parents=True, exist_ok=True)
@@ -286,13 +286,13 @@ def main(args):
         model.train()
         log_dict = train_one_epoch(
             model, loss_fn, train_loader, optimizer, lr_schedule, 
-            epoch, None, device, args)
+            epoch, None, args)
 
         if (epoch+1) % args.eval_every == 0:
             model.eval()
-            val_log_dict = val_one_epoch(model_infer, acc_fn, val_loader, 
-                                      post_label, post_pred,
-                                      None, device)
+            val_log_dict = val_one_epoch(
+                model_infer, acc_fn, val_loader, post_label, post_pred, None
+            )
             bc(val_log_dict['val/dice'])
             if es(val_log_dict['val/dice']):
                 break
