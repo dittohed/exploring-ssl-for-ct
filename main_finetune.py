@@ -184,9 +184,6 @@ def val_one_epoch(model, acc_fn, val_loader, post_label, post_pred,
 def main(args):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     set_determinism(args.seed)
-    # set_track_meta(False)
-    # TODO: see if this will still cause problems if using for uncached samples
-    # and moved after train_ds and val_ds construction
 
     # Prepare data
     train_data, val_data = get_finetune_data(args.data_dir)
