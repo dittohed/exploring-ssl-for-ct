@@ -65,11 +65,8 @@ def get_args_parser():
         help='Max. IoU of the 2nd crop with the 1st crop')
 
     # Training params
-    parser.add_argument('--use_fp16', action='store_true',
-        help='''Whether or not to use half precision for training. 
-        Improves training time and memory requirements, but can provoke instability 
-        and slight decay of performance. We recommend disabling mixed precision if 
-        the loss is unstable, if reducing the patch size or if training with bigger ViTs.''')
+    parser.add_argument('--use_amp', action='store_true',
+        help='Whether to use AMP for training.')
     parser.add_argument('--batch_size_per_gpu', default=2, type=int,
         help='''Number of distinct images loaded on a single GPU for which a single
         backward pass will be calculated (just a batch size per GPU if calling with
@@ -112,7 +109,7 @@ def get_args_parser():
 
 def train_one_epoch(student, teacher, loss_fn, train_loader, iters_per_epoch,
         optimizer, lr_schedule, wd_schedule, momentum_schedule, epoch,
-        fp16_scaler, device, args):
+        scaler, device, args):
     batch_losses = []  # Per logical batch losses to track the training process
     batch_loss = 0  # Accumulate loss from accumulation steps
     batch_center = torch.zeros_like(loss_fn.center)  # Accumulate batch center
@@ -135,8 +132,8 @@ def train_one_epoch(student, teacher, loss_fn, train_loader, iters_per_epoch,
         x_student = torch.cat([x1, x2]).to(device)
         x_teacher = torch.cat([x2, x1]).to(device)
 
-        # Forward pass
-        with torch.cuda.amp.autocast(fp16_scaler is not None):
+        with torch.cuda.amp.autocast(enabled=(scaler is not None)):
+            # Forward pass
             out_student = student(x_student)
             out_teacher = teacher(x_teacher)
 
@@ -148,15 +145,11 @@ def train_one_epoch(student, teacher, loss_fn, train_loader, iters_per_epoch,
             loss = loss_fn(out_student, out_teacher, epoch)
             loss = loss / args.accum_iters
 
-        if not math.isfinite(loss.item()):
-            print(f'Loss is {loss.item()}, stopping training...')
-            sys.exit(1)
-
         # utils.display_gpu_info()
         
         # Backward pass
         batch_loss += loss.item()
-        loss.backward()
+        scaler.scale(loss).backward()
 
         # If next batch belongs to a new logical batch
         # i.e. this is the last batch to accumulate
@@ -169,7 +162,11 @@ def train_one_epoch(student, teacher, loss_fn, train_loader, iters_per_epoch,
                 if i == 0:  # Only the first group is regularized
                     param_group['weight_decay'] = wd_schedule[step]
 
-            optimizer.step()
+            if args.use_amp:
+                scaler.step(optimizer)
+                scaler.update()
+            else:
+                optimizer.step()
             optimizer.zero_grad()
 
             # Update teacher weights using EMA
@@ -266,11 +263,13 @@ def main(args):
         iters_per_epoch=iters_per_epoch
     )
 
+    scaler = torch.cuda.amp.GradScaler() if args.use_amp else None
+
     # Train
     for epoch in range(args.n_epochs):
         train_one_epoch(
             student, teacher, loss_fn, data_loader, iters_per_epoch, optimizer,
-            lr_schedule, wd_schedule, momentum_schedule, epoch, None, device,
+            lr_schedule, wd_schedule, momentum_schedule, epoch, scaler, device,
             args
         )
 
