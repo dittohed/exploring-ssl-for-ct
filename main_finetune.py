@@ -200,6 +200,7 @@ def val_one_epoch(model, acc_fn, val_loader, post_label, post_pred,
 def main(args):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     set_determinism(args.seed)
+    torch.backends.cudnn.benchmark = True
 
     # Prepare data
     train_data, val_data = get_finetune_data(args.data_dir)
