@@ -93,7 +93,7 @@ def get_args_parser():
         help='How many backward passes to calculate before calling optimizer.step().')
 
     # Other params
-    parser.add_argument('--data_dir', default='./data', type=str,
+    parser.add_argument('--data_dir', default='./data/ssl', type=str,
         help='Path to pretraining data directory.')
     parser.add_argument('--output_dir', default='.', type=str, 
         help='Path to save logs and checkpoints.')
@@ -197,7 +197,6 @@ def train_one_epoch(student, teacher, loss_fn, train_loader, iters_per_epoch,
 def main(args):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     set_determinism(args.seed)
-    # TODO: set_track_meta(False)
 
     # Prepare data
     dataset = Dataset(data=get_ssl_data(args.data_dir), 
