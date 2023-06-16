@@ -8,6 +8,7 @@ import torch
 import torch.optim as optim
 
 from functools import partial
+from collections import OrderedDict
 from pathlib import Path
 from tqdm import tqdm
 
@@ -17,7 +18,7 @@ from monai.data import (
     ThreadDataLoader, CacheDataset, PersistentDataset, 
     set_track_meta, decollate_batch)
 from monai.inferers import sliding_window_inference
-from monai.metrics import DiceMetric
+from monai.metrics import DiceMetric, compute_surface_dice
 from monai.transforms import AsDiscrete
 from monai.utils import set_determinism
 from monai.utils.enums import MetricReduction
@@ -105,7 +106,7 @@ def get_args_parser():
 
 def train_one_epoch(model, loss_fn, train_loader, optimizer, lr_schedule, 
         epoch, scaler, args):
-    avg_agg = utils.AverageAggregator()
+    avg_loss = utils.AverageAggregator()
     tqdm_it = tqdm(train_loader, total=len(train_loader), leave=True)
     tqdm_it.set_description(f'Epoch: [{epoch+1}/{args.n_epochs}]')
 
@@ -144,10 +145,10 @@ def train_one_epoch(model, loss_fn, train_loader, optimizer, lr_schedule,
             loss=str(loss.item()), 
             lr=lr_schedule[step]
         )
-        avg_agg.update(loss.item())
+        avg_loss.update(loss.item())
 
     log_dict = {
-        'train/loss': avg_agg.item(),
+        'train/loss': avg_loss.item(),
         'train/lr': lr_schedule[step]
     }
     return log_dict
@@ -155,8 +156,9 @@ def train_one_epoch(model, loss_fn, train_loader, optimizer, lr_schedule,
 
 @torch.no_grad()
 def val_one_epoch(model, acc_fn, val_loader, post_label, post_pred,
-        scaler):
-    avg_agg = utils.AverageAggregator()
+        scaler, org_thresholds, args):
+    avg_dice = utils.AverageAggregator()
+    avg_surf_dice = utils.AverageAggregator()
 
     for data_dict in val_loader:
         img, label = data_dict['img'], data_dict['label']
@@ -169,15 +171,28 @@ def val_one_epoch(model, acc_fn, val_loader, post_label, post_pred,
         pred_list = decollate_batch(pred)
         pred_list = [post_pred(pred_tensor) for pred_tensor in pred_list]
 
+        # Dice
         acc_fn.reset()
         acc_fn(y_pred=pred_list, y=label_list)
         acc, not_nans = acc_fn.aggregate()
         assert not_nans == 1  # TODO: be careful for multiple GPUs
-        avg_agg.update(acc.item())
+        avg_dice.update(acc.item())
 
-    print(f'Mean validation dice score: {avg_agg.item():.4f}.')
+        # Surface dice
+        surf_dice = compute_surface_dice(
+            y_pred=torch.stack(pred_list), 
+            y=torch.stack(label_list), 
+            class_thresholds=list(org_thresholds.values()),
+            spacing=(args.size_y, args.size_x, args.size_z)
+        )
+        avg_surf_dice.update(torch.mean(surf_dice))
+
+    print(f'Mean validation dice score: {avg_dice.item():.4f}.')
+    print(f'Mean validation surface dice score: {avg_surf_dice.item():.4f}.')
+
     log_dict = {
-        'val/dice': avg_agg.item()
+        'val/dice': avg_dice.item(),
+        'val/surf_dice': avg_surf_dice.item()
     }
     return log_dict
 
@@ -268,6 +283,11 @@ def main(args):
     post_label = AsDiscrete(to_onehot=args.n_classes)
     post_pred = AsDiscrete(argmax=True, to_onehot=args.n_classes)
 
+    org_thresholds = OrderedDict(  # FLARE2022 official thresholds
+        {'Liver': 5, 'RK': 3, 'Spleen': 3, 'Pancreas': 5, 
+         'Aorta': 2, 'IVC': 2, 'RAG': 2, 'LAG': 2, 'Gallbladder': 2,
+         'Esophagus': 3, 'Stomach': 5, 'Duodenum': 7, 'LK': 3})
+
     model_infer = partial(
         sliding_window_inference,
         roi_size=[96, 96, 96],
@@ -293,7 +313,8 @@ def main(args):
         if (epoch+1) % args.eval_every == 0:
             model.eval()
             val_log_dict = val_one_epoch(
-                model_infer, acc_fn, val_loader, post_label, post_pred, scaler
+                model_infer, acc_fn, val_loader, post_label, post_pred, scaler,
+                org_thresholds, args
             )
             bc(val_log_dict['val/dice'])
             if es(val_log_dict['val/dice']):
@@ -310,9 +331,12 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if args.low_resource_mode:
+        args.cache_rate = 0
+        args.eval_every = 1
         args.embedding_size = 12
         args.batch_size_per_gpu = 1
         args.sw_batch_size = 1
+        args.sw_overlap = 0
 
     if args.use_wandb:
         wandb.init(
@@ -324,6 +348,3 @@ if __name__ == '__main__':
         wandb.define_metric('val/dice', summary='max')
 
     main(args)
-
-    if args.use_persistence:  # TODO: remove, should be shared between runs 
-        shutil.rmtree(Path(args.cache_dir))
