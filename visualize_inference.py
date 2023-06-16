@@ -124,11 +124,11 @@ def main(args):
         for i in range(img.shape[-1]):
             if i % 50 == 0:
                 fig, axs = plt.subplots(1, 3, figsize=(10, 10))
-                axs[0].imshow(img[0, 0, :, :, i], cmap='gray', vmin=0, vmax=1)
+                axs[0].imshow(img[0, 0, :, :, i].cpu(), cmap='gray', vmin=0, vmax=1)
                 axs[0].set_title('Original slice')
-                axs[1].imshow(label[0, 0, :, :, i])
+                axs[1].imshow(label[0, 0, :, :, i].cpu())
                 axs[1].set_title('Label')
-                axs[2].imshow(torch.argmax(pred[0, :, :, :, i], dim=0))
+                axs[2].imshow(torch.argmax(pred[0, :, :, :, i].cpu(), dim=0))
                 axs[2].set_title('Prediction')
 
                 file_id = Path(data_dict['img_meta_dict']['filename_or_obj'][0]).stem
