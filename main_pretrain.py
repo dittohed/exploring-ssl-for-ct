@@ -129,10 +129,13 @@ def train_one_epoch(student, teacher, loss_fn, train_loader, iters_per_epoch,
         # Prepare input
         # TODO: add comment
         x1, x2 = data_dict['img1'], data_dict['img2']
-        # x_student = x1.to(device)
-        # x_teacher = x2.to(device)
-        x_student = torch.cat([x1, x2]).to(device)
-        x_teacher = torch.cat([x2, x1]).to(device)
+
+        if args.low_resource_mode:
+            x_student = x1.to(device)
+            x_teacher = x2.to(device)
+        else:
+            x_student = torch.cat([x1, x2]).to(device)
+            x_teacher = torch.cat([x2, x1]).to(device)
 
         with torch.cuda.amp.autocast(enabled=(scaler is not None)):
             # Forward pass
@@ -148,10 +151,12 @@ def train_one_epoch(student, teacher, loss_fn, train_loader, iters_per_epoch,
             loss = loss / args.accum_iters
 
         # utils.display_gpu_info()
-        
-        # Backward pass
         batch_loss += loss.item()
-        scaler.scale(loss).backward()
+
+        if args.use_amp:
+            scaler.scale(loss).backward()
+        else:
+            loss.backward()
 
         # If next batch belongs to a new logical batch
         # i.e. this is the last batch to accumulate
