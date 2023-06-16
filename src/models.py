@@ -12,8 +12,8 @@ class Backbone(torch.nn.Module):
             embed_dim=args.embedding_size,
             window_size=ensure_tuple_rep(7, args.spatial_dims),
             patch_size=ensure_tuple_rep(2, args.spatial_dims),
-            depths=[2, 2, 2, 2],
-            num_heads=[3, 3, 3, 3],  # TODO: [3, 6, 12, 24] originally
+            depths=(2, 2, 2, 2),
+            num_heads=(3, 3, 3, 3) if args.low_resource_mode else (3, 6, 12, 24),
             mlp_ratio=4.0,
             qkv_bias=True,
             drop_rate=0.0,

@@ -20,12 +20,12 @@ from src.dino import Loss as DINOLoss
 
 
 def get_args_parser():
-    parser = argparse.ArgumentParser('Pretrain CT')  # TODO: add_help?
+    parser = argparse.ArgumentParser('Pretrain CT')
 
     # Swin params
-    parser.add_argument('--embedding_size', default=24, type=int,  # TODO: back to 48
+    parser.add_argument('--embedding_size', default=48, type=int,
         help='Swin backbone base embedding size (C from the paper)')
-    parser.add_argument('--dropout_path_rate', default=0.0, type=float,  # TODO: DINO used 0.1 for ViT
+    parser.add_argument('--dropout_path_rate', default=0.1, type=float,
         help='TODO')
     parser.add_argument('--use_gradient_checkpointing', action='store_true',  # TODO: could try
         help='Whether to use gradient checkpointing (saves memory, longer training).')
@@ -53,9 +53,9 @@ def get_args_parser():
         help='`a_min` in monai.transforms.ScaleIntensityRanged')
     parser.add_argument('--a_max', default=500, type=float, 
         help='`a_max` in monai.transforms.ScaleIntensityRanged')
-    parser.add_argument('--size_x', default=1, type=float, 
+    parser.add_argument('--size_x', default=1.0, type=float, 
         help='Pixel size in x direction')
-    parser.add_argument('--size_y', default=1, type=float, 
+    parser.add_argument('--size_y', default=1.0, type=float, 
         help='Pixel size in y direction')
     parser.add_argument('--size_z', default=2.5, type=float, 
         help='Pixel size in z direction')
@@ -73,7 +73,7 @@ def get_args_parser():
         --accum_iters 1).''')
     parser.add_argument('--n_epochs', default=100, type=int, 
         help='Number of epochs of training.')
-    parser.add_argument('--base_lr', default=0.0005, type=float, 
+    parser.add_argument('--base_lr', default=0.0005, type=float,  # TODO
         help='''Learning rate at the end of linear warmup (highest used during 
         training). The learning rate is linearly scaled with the batch size, and 
         specified here for a reference batch size of 256.''')
@@ -103,6 +103,8 @@ def get_args_parser():
         help='Random seed.')
     parser.add_argument('--num_workers', default=10, type=int, 
         help='Number of data loading workers per GPU.')
+    parser.add_argument('--low_resource_mode', action='store_true',
+        help='Whether to limit memory footprint for minor tests.')
 
     return parser
 
@@ -276,4 +278,10 @@ def main(args):
 
 if __name__ == '__main__':
     parser = get_args_parser()
-    main(parser.parse_args())
+    args = parser.parse_args()
+
+    if args.low_resource_mode:
+        args.embedding_size = 12
+        args.batch_size_per_gpu = 1
+
+    main(args)
