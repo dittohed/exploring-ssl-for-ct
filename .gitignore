@@ -1,6 +1,7 @@
 imgs/
 labels/
 ssl/
+ssl_preprocessed
 .vscode
 __pycache__
 .ipynb_checkpoints

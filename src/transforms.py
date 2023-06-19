@@ -172,59 +172,95 @@ class IoUCropd(T.Randomizable, T.MapTransform):
         return vol_inter / vol_union
     
 
-def get_ssl_transforms(args):
-    transforms = T.Compose([
-        T.LoadImaged(
-            keys=['img']
-        ),
-        T.EnsureChannelFirstd(
-            keys=['img']
-        ),
-        T.Orientationd(
-            keys=['img'], 
-            axcodes='RAS'
-        ),
-        T.Spacingd(
-            keys=['img'], 
-            pixdim=(args.size_y, args.size_x, args.size_z), 
-            mode=('bilinear')
-        ),
-        T.ScaleIntensityRanged(
-            keys=['img'], 
-            a_min=args.a_min, 
-            a_max=args.a_max,
-            b_min=0.0, 
-            b_max=1.0, 
-            clip=True
-        ),
-        T.CropForegroundd(
-            keys=['img'], 
-            source_key='img'
-        ),
-        T.SpatialPadd(
-            keys=['img'], 
-            spatial_size=(96, 96, 96)
-        ),
-        T.EnsureTyped(  # TODO: swap with IoUCropd and add to device?
-            keys=['img'], 
-            track_meta=False
-        ),
-        IoUCropd(
-            keys=['img'], 
-            min_iou=args.min_iou, 
-            max_iou=args.max_iou
-        )
-        # TODO: put augmentations here, including zoom?
-        # T.RandZoomd(
-        #     keys=['img', 'label'], 
-        #     min_zoom=0.8, 
-        #     max_zoom=1.2, 
-        #     mode=('trilinear', 'nearest'),
-        #     prob=0.15
-        # )
-    ])
+def get_ssl_transforms(args, mode='full'):
+    """
+    Return img transforms for pretraining.
 
-    return transforms
+    For `mode` use one of the following:
+    * 'full' for full preprocessing of images each time they're loaded 
+        during pretraining;
+    * 'light' to skip basic preprocessing during pretraining (should be only 
+        used for images already processed with `preprocess` mode);
+    * 'preprocess' for preprocessing images before actual pretraining so that 
+        'light' mode can be further used during pretraining.
+    """
+
+    assert mode in ['full', 'light', 'preprocess']
+
+    if mode == 'light':
+        transforms = [
+            T.LoadImaged(
+                keys=['img']
+            ),
+            T.EnsureChannelFirstd(
+                keys=['img']
+            ),
+            T.EnsureTyped(  
+                keys=['img'], 
+                track_meta=False
+            )
+        ]
+    else:
+        transforms = [
+            T.LoadImaged(
+                keys=['img']
+            ),
+            T.EnsureChannelFirstd(
+                keys=['img']
+            ),
+            T.Orientationd(
+                keys=['img'], 
+                axcodes='RAS'
+            ),
+            T.Spacingd(
+                keys=['img'], 
+                pixdim=(args.size_y, args.size_x, args.size_z), 
+                mode=('bilinear')
+            ),
+            T.ScaleIntensityRanged(
+                keys=['img'], 
+                a_min=args.a_min, 
+                a_max=args.a_max,
+                b_min=0.0, 
+                b_max=1.0, 
+                clip=True
+            ),
+            T.CropForegroundd(
+                keys=['img'], 
+                source_key='img'
+            ),
+            T.SpatialPadd(
+                keys=['img'], 
+                spatial_size=(96, 96, 96)
+            ),
+            T.EnsureTyped(  # TODO: swap with IoUCropd and add to device?
+                keys=['img'], 
+                track_meta=False
+            )
+        ]
+
+    if mode == 'preprocess':
+        print(f'The following transforms pipeline will be used: {transforms}.')
+        return T.Compose(transforms) 
+    else:
+        transforms.extend([
+            IoUCropd(
+                keys=['img'], 
+                min_iou=args.min_iou, 
+                max_iou=args.max_iou
+            )
+            # TODO: put augmentations here, including zoom?
+            # T.RandZoomd(
+            #     keys=['img', 'label'], 
+            #     min_zoom=0.8, 
+            #     max_zoom=1.2, 
+            #     mode=('trilinear', 'nearest'),
+            #     prob=0.15
+            # )
+        ])
+
+    print(f'The following transforms pipeline will be used: {transforms}.')
+    return T.Compose(transforms)
 
 
 def get_finetune_transforms(args, device):

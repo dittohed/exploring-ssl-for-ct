@@ -63,6 +63,8 @@ def get_args_parser():
         help='Min. IoU of the 2nd crop with the 1st crop')
     parser.add_argument('--max_iou', default=1.0, type=float, 
         help='Max. IoU of the 2nd crop with the 1st crop')
+    parser.add_argument('--preprocess_mode', default='full', type=str, 
+        help='How to preprocess training data.')
 
     # Training params
     parser.add_argument('--use_amp', action='store_true',
@@ -205,7 +207,7 @@ def main(args):
 
     # Prepare data
     dataset = Dataset(data=get_ssl_data(args.data_dir), 
-                      transform=get_ssl_transforms(args))
+                      transform=get_ssl_transforms(args, args.preprocess_mode))
     data_loader = DataLoader(dataset, batch_size=args.batch_size_per_gpu)
     # TODO: num_workers
 
