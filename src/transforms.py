@@ -178,7 +178,8 @@ def get_ssl_rand_transforms(key):
             keys=[key], 
             min_zoom=0.8, 
             max_zoom=1.2, 
-            mode=('trilinear'),
+            mode=('bilinear'),
+            padding_mode='constant',
             prob=0.75
         ),
         T.RandFlipd(
