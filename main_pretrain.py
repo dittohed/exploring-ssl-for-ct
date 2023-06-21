@@ -206,8 +206,9 @@ def main(args):
     set_determinism(args.seed)
 
     # Prepare data
-    dataset = Dataset(data=get_ssl_data(args.data_dir), 
-                      transform=get_ssl_transforms(args, args.preprocess_mode))
+    dataset = Dataset(
+        data=get_ssl_data(args.data_dir), 
+        transform=get_ssl_transforms(args, args.preprocess_mode, device))
     data_loader = DataLoader(dataset, batch_size=args.batch_size_per_gpu)
     # TODO: num_workers
 

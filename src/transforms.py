@@ -172,7 +172,60 @@ class IoUCropd(T.Randomizable, T.MapTransform):
         return vol_inter / vol_union
     
 
-def get_ssl_transforms(args, mode='full'):
+def get_ssl_rand_transforms(key):
+    transforms = [
+        T.RandZoomd(
+            keys=[key], 
+            min_zoom=0.8, 
+            max_zoom=1.2, 
+            mode=('trilinear'),
+            prob=0.75
+        ),
+        T.RandFlipd(
+            keys=[key], 
+            spatial_axis=0,
+            prob=0.5
+        ),
+        T.RandFlipd(
+            keys=[key], 
+            spatial_axis=1,
+            prob=0.5
+        ),
+        T.RandFlipd(
+            keys=[key], 
+            spatial_axis=2,
+            prob=0.5
+        ),
+        T.RandRotate90d(
+            keys=[key], 
+            max_k=3,
+            prob=0.5
+        ),
+        T.RandScaleIntensityd(
+            keys=[key], 
+            factors=0.1, 
+            prob=0.75
+        ),
+        T.RandShiftIntensityd(
+            keys=[key], 
+            offsets=0.1, 
+            prob=0.75
+        ),
+        T.RandGaussianSmoothd(
+            keys=[key],
+            prob=0.25
+        ),
+        T.RandGaussianNoised(
+            keys=[key],
+            std=0.01,
+            prob=0.25
+        )
+    ]
+
+    return transforms
+
+
+def get_ssl_transforms(args, mode='full', device=None):
     """
     Return img transforms for pretraining.
 
@@ -233,7 +286,7 @@ def get_ssl_transforms(args, mode='full'):
                 keys=['img'], 
                 spatial_size=(96, 96, 96)
             ),
-            T.EnsureTyped(  # TODO: swap with IoUCropd and add to device?
+            T.EnsureTyped(
                 keys=['img'], 
                 track_meta=False
             )
@@ -248,15 +301,14 @@ def get_ssl_transforms(args, mode='full'):
                 keys=['img'], 
                 min_iou=args.min_iou, 
                 max_iou=args.max_iou
-            )
-            # TODO: put augmentations here, including zoom?
-            # T.RandZoomd(
-            #     keys=['img', 'label'], 
-            #     min_zoom=0.8, 
-            #     max_zoom=1.2, 
-            #     mode=('trilinear', 'nearest'),
-            #     prob=0.15
-            # )
+            ),
+            T.EnsureTyped(
+                keys=['img1', 'img2'], 
+                track_meta=False,
+                device=device
+            ),
+            *get_ssl_rand_transforms('img1'),
+            *get_ssl_rand_transforms('img2')
         ])
 
     print(f'The following transforms pipeline will be used: {transforms}.')
