@@ -1,3 +1,5 @@
+import sys
+import math
 import argparse
 
 import torch
@@ -141,6 +143,10 @@ def train_one_epoch(student, teacher, loss_fn, train_loader, iters_per_epoch,
 
             loss = loss_fn(out_student, out_teacher, epoch)
             loss = loss / args.accum_iters
+
+        if not math.isfinite(loss.item()):
+            print(f'Loss is {loss.item()}, stopping training...')
+            sys.exit(1)
 
         # utils.display_gpu_info()
         batch_loss += loss.item()

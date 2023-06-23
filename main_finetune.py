@@ -1,5 +1,4 @@
 import sys
-import shutil
 import math
 import argparse
 import wandb
@@ -16,7 +15,7 @@ from monai.networks.nets import SwinUNETR
 from monai.losses import DiceCELoss
 from monai.data import (
     ThreadDataLoader, CacheDataset, PersistentDataset, 
-    set_track_meta, decollate_batch)
+    decollate_batch)
 from monai.inferers import sliding_window_inference
 from monai.metrics import DiceMetric, compute_surface_dice
 from monai.transforms import AsDiscrete
@@ -67,7 +66,7 @@ def get_args_parser():
         help='`num_samples` in monai.transforms.RandCropByPosNegLabeld (per GPU).')
     parser.add_argument('--sw_batch_size', default=4, type=int,
         help='Batch size for sliding window inference.')
-    parser.add_argument('--n_epochs', default=5000, type=int, 
+    parser.add_argument('--n_epochs', default=500, type=int, 
         help='Number of epochs of training.')
     parser.add_argument('--base_lr', default=1e-3, type=float, 
         help='''Learning rate at the end of linear warmup (highest used during 
@@ -271,7 +270,7 @@ def main(args):
 
     lr_schedule = utils.cosine_scheduler(
         base_val=args.base_lr,
-        end_val=0,
+        end_val=5e-5,
         n_epochs=args.n_epochs,
         iters_per_epoch=len(train_loader),
         warmup_epochs=args.warmup_epochs
