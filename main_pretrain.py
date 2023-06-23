@@ -1,5 +1,3 @@
-import sys
-import math
 import argparse
 
 import torch
@@ -7,7 +5,7 @@ import torch.nn as nn
 import torch.optim as optim
 
 from tqdm import tqdm
-from monai.data import DataLoader, Dataset, set_track_meta
+from monai.data import DataLoader, Dataset
 from monai.utils import set_determinism
 
 import src.utils as utils
@@ -24,25 +22,19 @@ def get_args_parser():
 
     # Swin params
     parser.add_argument('--embedding_size', default=48, type=int,
-        help='Swin backbone base embedding size (C from the paper)')
-    parser.add_argument('--dropout_path_rate', default=0.1, type=float,
-        help='TODO')
+        help='Swin backbone base embedding size (C from the paper).')
     parser.add_argument('--use_gradient_checkpointing', action='store_true',  # TODO: could try
         help='Whether to use gradient checkpointing (saves memory, longer training).')
     
     # DINO head params
-    parser.add_argument('--out_dim', default=512, type=int,  # TODO: as big as possible
+    parser.add_argument('--out_dim', default=1024, type=int,
         help='Dimensionality of the last head layer (softmax is calculated on).')
     
     # DINO loss params
     parser.add_argument('--init_teacher_temp', default=0.04, type=float,
-        help='''Initial value for the teacher temperature: 0.04 works well in most 
-        cases. Try decreasing it if the training loss does not decrease.''')
+        help='Initial value for the teacher temperature.')
     parser.add_argument('--teacher_temp', default=0.04, type=float,
-        help='''Final value (after linear warmup) of the teacher temperature. 
-        For most experiments, anything above 0.07 is unstable. We recommend
-        starting with the default value of 0.04 and increase this slightly if 
-        needed.''')
+        help='Final value (after linear warmup) of the teacher temperature.')
     parser.add_argument('--teacher_temp_warmup_epochs', default=0, type=int,
         help='Number of warmup epochs for the teacher temperature.')
     
@@ -73,25 +65,23 @@ def get_args_parser():
         help='''Number of distinct images loaded on a single GPU for which a single
         backward pass will be calculated (just a batch size per GPU if calling with
         --accum_iters 1).''')
-    parser.add_argument('--n_epochs', default=100, type=int, 
+    parser.add_argument('--n_epochs', default=300, type=int, 
         help='Number of epochs of training.')
-    parser.add_argument('--base_lr', default=0.0005, type=float,  # TODO
+    parser.add_argument('--base_lr', default=5e-5, type=float,
         help='''Learning rate at the end of linear warmup (highest used during 
-        training). The learning rate is linearly scaled with the batch size, and 
-        specified here for a reference batch size of 256.''')
+        training).''')
     parser.add_argument('--warmup_epochs', default=10, type=int,
         help='Number of epochs for the linear learning-rate warm up.')
     parser.add_argument('--end_lr', type=float, default=1e-6,
         help='''Target lr at the end of optimization. We use a cosine lr 
         schedule with linear warmup.''')
     parser.add_argument('--base_wd', type=float, default=0.04, 
-        help='TODO')
+        help='Weight decay at the beginning of training.')
     parser.add_argument('--end_wd', type=float, default=0.4, 
-        help='TODO')
-    # Increased base_momentum due to smaller batch size
+        help='Weight decay at the end of training (cosine schedule).')
     parser.add_argument('--base_momentum', type=float, default=0.9995,
-        help='TODO')
-    parser.add_argument('--accum_iters', type=int, default=2,
+        help='Lambda for momentum teacher update.')
+    parser.add_argument('--accum_iters', type=int, default=1,
         help='How many backward passes to calculate before calling optimizer.step().')
 
     # Other params
@@ -129,13 +119,13 @@ def train_one_epoch(student, teacher, loss_fn, train_loader, iters_per_epoch,
             break
 
         # Prepare input
-        # TODO: add comment
         x1, x2 = data_dict['img1'], data_dict['img2']
 
         if args.low_resource_mode:
             x_student = x1.to(device)
             x_teacher = x2.to(device)
         else:
+            # Concat to calculate the loss symmetrically
             x_student = torch.cat([x1, x2]).to(device)
             x_teacher = torch.cat([x2, x1]).to(device)
 
