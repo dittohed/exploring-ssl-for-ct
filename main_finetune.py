@@ -81,7 +81,7 @@ def get_args_parser():
         help='How many evals to wait for val metric to improve before terminating.')
 
     # Other params
-    parser.add_argument('--run_name', default='test', type=str,
+    parser.add_argument('--run_name', default='test_finetune', type=str,
         help='Unique run/experiment name.')
     parser.add_argument('--eval_every', default=10, type=int,
         help='After how many epochs to evaluate in the training cycle.')
@@ -89,6 +89,8 @@ def get_args_parser():
         help='Path to training data directory.')
     parser.add_argument('--chkpt_dir', default='./chkpts', type=str, 
         help='Path to checkpoints directory.')
+    parser.add_argument('--chkpt_load', default=None, type=str, 
+        help='ID of checkpoint to load at the beginning of training.')
     parser.add_argument('--cache_dir', default='./cache', type=str, 
         help='`cache_dir` in monai.data.PersistentDataset objects.')
     parser.add_argument('--seed', default=4294967295, type=int, 
@@ -256,7 +258,12 @@ def main(args):
         use_checkpoint=args.use_gradient_checkpointing
     ).to(device)
 
-    # TODO: load from finetune checkpoint or ssl checkpoint
+    if args.chkpt_load is not None:
+        chkpt_path = Path(args.chkpt_dir)/Path(args.chkpt_load+'.pt')
+        model.swinViT.load_state_dict(
+            torch.load(chkpt_path)
+        )
+        print(f'Successfully loaded weights from {chkpt_path}.')
 
     # Prepare other stuff for training
     loss_fn = DiceCELoss(
@@ -298,7 +305,7 @@ def main(args):
 
     bc = BestCheckpoint(
         model=model, 
-        save_path=Path(args.chkpt_dir)/Path(args.run_name+'.pt')
+        save_path=Path(args.chkpt_dir)/Path(args.run_name+'_best.pt')
     )
     es = EarlyStopping(args.patience)
 

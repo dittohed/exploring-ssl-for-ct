@@ -2,6 +2,8 @@ import sys
 import math
 import argparse
 
+from pathlib import Path
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -25,6 +27,8 @@ def get_args_parser():
     # Swin params
     parser.add_argument('--embedding_size', default=48, type=int,
         help='Swin backbone base embedding size (C from the paper).')
+    parser.add_argument('--drop_path_rate', default=0.1, type=float,
+        help='`drop_path_rate` for monai.networks.nets.swin_unetr.SwinTransformer.')
     parser.add_argument('--use_gradient_checkpointing', action='store_true',  # TODO: could try
         help='Whether to use gradient checkpointing (saves memory, longer training).')
     
@@ -87,12 +91,12 @@ def get_args_parser():
         help='How many backward passes to calculate before calling optimizer.step().')
 
     # Other params
+    parser.add_argument('--run_name', default='test_ssl', type=str,
+        help='Unique run/experiment name.')
     parser.add_argument('--data_dir', default='./data/ssl', type=str,
         help='Path to pretraining data directory.')
-    parser.add_argument('--output_dir', default='.', type=str, 
-        help='Path to save logs and checkpoints.')
-    parser.add_argument('--save_chkpt_every', default=20, type=int, 
-        help='How often to save model checkpoint.')
+    parser.add_argument('--chkpt_dir', default='./chkpts', type=str, 
+        help='Path to checkpoints directory.')
     parser.add_argument('--seed', default=4294967295, type=int, 
         help='Random seed.')
     parser.add_argument('--num_workers', default=10, type=int, 
@@ -270,12 +274,19 @@ def main(args):
 
     scaler = torch.cuda.amp.GradScaler() if args.use_amp else None
 
+    Path(args.chkpt_dir).mkdir(parents=True, exist_ok=True)
+
     # Train
     for epoch in range(args.n_epochs):
         train_one_epoch(
             student, teacher, loss_fn, data_loader, iters_per_epoch, optimizer,
             lr_schedule, wd_schedule, momentum_schedule, epoch, scaler, device,
             args
+        )
+
+        torch.save(
+            student[0].model.state_dict(), 
+            Path(args.chkpt_dir)/Path(args.run_name+'.pt')
         )
 
 

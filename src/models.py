@@ -18,7 +18,7 @@ class Backbone(torch.nn.Module):
             qkv_bias=True,
             drop_rate=0.0,
             attn_drop_rate=0.0,
-            drop_path_rate=args.dropout_path_rate,
+            drop_path_rate=args.drop_path_rate,
             norm_layer=torch.nn.LayerNorm,
             use_checkpoint=args.use_gradient_checkpointing,
             spatial_dims=args.spatial_dims,
