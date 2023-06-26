@@ -100,7 +100,7 @@ def get_args_parser():
         help='Path to checkpoints directory.')
     parser.add_argument('--seed', default=4294967295, type=int, 
         help='Random seed.')
-    parser.add_argument('--num_workers', default=10, type=int, 
+    parser.add_argument('--num_workers', default=0, type=int, 
         help='Number of data loading workers per GPU.')
     parser.add_argument('--use_wandb', action='store_true',
         help='Whether to log training config and results to W&B.')
@@ -220,8 +220,11 @@ def main(args):
     dataset = Dataset(
         data=get_ssl_data(args.data_dir), 
         transform=get_ssl_transforms(args, args.preprocess_mode, device))
-    data_loader = DataLoader(dataset, batch_size=args.batch_size_per_gpu)
-    # TODO: num_workers
+    data_loader = DataLoader(
+        dataset, 
+        batch_size=args.batch_size_per_gpu,
+        num_workers=args.num_workers
+    )
 
     # Prepare models
     student = nn.Sequential(
