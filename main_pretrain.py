@@ -1,6 +1,7 @@
 import sys
 import math
 import argparse
+import wandb
 
 from pathlib import Path
 
@@ -101,6 +102,8 @@ def get_args_parser():
         help='Random seed.')
     parser.add_argument('--num_workers', default=10, type=int, 
         help='Number of data loading workers per GPU.')
+    parser.add_argument('--use_wandb', action='store_true',
+        help='Whether to log training config and results to W&B.')
     parser.add_argument('--low_resource_mode', action='store_true',
         help='Whether to limit memory footprint for minor tests.')
 
@@ -110,7 +113,7 @@ def get_args_parser():
 def train_one_epoch(student, teacher, loss_fn, train_loader, iters_per_epoch,
         optimizer, lr_schedule, wd_schedule, momentum_schedule, epoch,
         scaler, device, args):
-    batch_losses = []  # Per logical batch losses to track the training process
+    avg_loss = utils.AverageAggregator()
     batch_loss = 0  # Accumulate loss from accumulation steps
     batch_center = torch.zeros_like(loss_fn.center)  # Accumulate batch center
 
@@ -187,18 +190,26 @@ def train_one_epoch(student, teacher, loss_fn, train_loader, iters_per_epoch,
                     )
 
             # Logging
-            batch_losses.append(batch_loss)
-            tqdm_it.set_postfix(loss=str(batch_loss), 
+            tqdm_it.set_postfix(  
+                loss=str(batch_loss),  # str() for no rounding
                 lr=lr_schedule[step],
                 wd=wd_schedule[step],
-                momentum=str(momentum_schedule[step]))  # str() for no rounding
+                momentum=str(momentum_schedule[step])
+            )  
+            avg_loss.update(batch_loss)
             
             # Starting new accumulation
             batch_loss = 0
             loss_fn.update_center(batch_center)
             batch_center = torch.zeros_like(loss_fn.center)
 
-    return batch_losses
+    log_dict = {
+        'train/loss': avg_loss.item(),
+        'train/lr': lr_schedule[step],
+        'train/wd': wd_schedule[step],
+        'train_momentum': momentum_schedule[step]
+    }
+    return log_dict
 
 
 def main(args):
@@ -278,7 +289,7 @@ def main(args):
 
     # Train
     for epoch in range(args.n_epochs):
-        train_one_epoch(
+        log_dict = train_one_epoch(
             student, teacher, loss_fn, data_loader, iters_per_epoch, optimizer,
             lr_schedule, wd_schedule, momentum_schedule, epoch, scaler, device,
             args
@@ -289,6 +300,9 @@ def main(args):
             Path(args.chkpt_dir)/Path(args.run_name+'.pt')
         )
 
+        if args.use_wandb:
+            wandb.log(log_dict)
+
 
 if __name__ == '__main__':
     parser = get_args_parser()
@@ -297,5 +311,13 @@ if __name__ == '__main__':
     if args.low_resource_mode:
         args.embedding_size = 12
         args.batch_size_per_gpu = 1
+
+    if args.use_wandb:
+        wandb.init(
+            project='exploring-ssl-for-ct',
+            name=args.run_name,
+            config=vars(args)
+        )
+        wandb.define_metric('train/loss', summary='min')
 
     main(args)
