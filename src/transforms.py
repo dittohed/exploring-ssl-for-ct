@@ -1,10 +1,10 @@
 import numpy as np
+import monai.transforms as T
 
 from typing import Optional
 
 from monai.config import KeysCollection
 from monai.utils import first
-import monai.transforms as T
 
 
 # TODO: doublecheck, verify there's no coords issue
@@ -24,6 +24,13 @@ class IoUCropd(T.Randomizable, T.MapTransform):
         crop_size (int): subvolumes side lenghts.
         min_iou (float): lower bound of IoU range.
         max_iou (float): upper bound of IoU range.
+        max_retries_existing (int): how many times to sample second crop coords
+            having sampled first crop coords. Introduced to not sample first
+            crop coords every time IoU isn't in the specified range to
+            decrease chances of avoiding harder first central crops.
+        max_retries_total (int): how many times to sample in general. If
+            proper pair isn't find in `max_retries_total` steps, random crops
+            are returned.
         debug (bool): whether to add/leave keys to the data dictionary
             for debugging purposes.
     """
@@ -31,7 +38,8 @@ class IoUCropd(T.Randomizable, T.MapTransform):
     def __init__(
             self, keys: KeysCollection, crop_size: int = 96, 
             min_iou: float = 0.0, max_iou: float = 1.0, 
-            debug=False):
+            max_retries_existing: int = 20,
+            max_retries_total: int = 60, debug=False):
         assert min_iou <= max_iou
 
         super(IoUCropd, self).__init__(keys)
@@ -39,7 +47,10 @@ class IoUCropd(T.Randomizable, T.MapTransform):
         self._crop_size = crop_size
         self._min_iou = min_iou
         self._max_iou = max_iou
+        self._max_retries_existing = max_retries_existing
+        self._max_retries_total = max_retries_total
         self._debug = debug
+
         self._cropper = T.Crop()
 
     def set_random_state(
@@ -54,18 +65,33 @@ class IoUCropd(T.Randomizable, T.MapTransform):
         shape = list(shape[-3:])
         shape[0], shape[1] = shape[1], shape[0]
 
-        # Sample first crop
-        existing_coords = self._sample_coords(
-                            crop_size=self._crop_size, 
-                            limit_box=[0, 0, 0, *shape]
-                        )
+        retries_total = 0
+        while True:
+            # Sample first crop
+            existing_coords = self._sample_coords(
+                crop_size=self._crop_size, 
+                limit_box=[0, 0, 0, *shape]
+            )
+            
+            # Sample second crop
+            iou_coords, success = self._sample_coords_iou(
+                existing_coords=existing_coords,
+                crop_size=self._crop_size,
+                img_shape=shape,
+                max_retries=self._max_retries_existing
+            )
+            if success:
+                return existing_coords, iou_coords
+            else:
+                retries_total += self._max_retries_existing
+                
+            if retries_total >= self._max_retries_total:
+                print(
+                    (f'Pair not found within {self._max_retries_total} steps, ')
+                    ('returning random crops')
+                )
+                break
 
-        # Sample second crop
-        iou_coords = self._sample_coords_iou(
-                    existing_coords=existing_coords,
-                    crop_size=self._crop_size,
-                    img_shape=shape)
-        
         return existing_coords, iou_coords
 
     def _sample_coords(self, crop_size, limit_box):
@@ -81,35 +107,38 @@ class IoUCropd(T.Randomizable, T.MapTransform):
 
         return x1, y1, z1, x1+crop_size, y1+crop_size, z1+crop_size
     
-    def _sample_coords_iou(self, existing_coords, crop_size, img_shape):
+    def _sample_coords_iou(self, existing_coords, crop_size, img_shape,
+            max_retries):
         """
         Sample minimum coord (x1, y1, z1) and maximum coord (x2, y2, z2) 
         of a cube crop with a side length of `crop_size` so that it has
         IoU from a specified range with a cube crop defined by 
         `existing_coords`.
+
+        Returns `new_coords` with True flag if the new coords were found
+        within `max_retries` steps, otherwise False flag is returned.
         """
+        if self._min_iou > 0:
+            # Speed up by restricting only to volume 
+            # adjacent to `existing_coords` crop
+            limit_box = (
+                max(existing_coords[0]-crop_size, 0),
+                max(existing_coords[1]-crop_size, 0),
+                max(existing_coords[2]-crop_size, 0),
+                min(existing_coords[3]+crop_size, img_shape[0]),
+                min(existing_coords[4]+crop_size, img_shape[1]),
+                min(existing_coords[5]+crop_size, img_shape[2])
+            )
+        else:
+            limit_box = [0, 0, 0, *img_shape]
 
-        while True:
-            if self._min_iou > 0:
-                # Speed up by restricting only to volume 
-                # adjacent to `existing_coords` crop
-                limit_box = (
-                    max(existing_coords[0]-crop_size, 0),
-                    max(existing_coords[1]-crop_size, 0),
-                    max(existing_coords[2]-crop_size, 0),
-                    min(existing_coords[3]+crop_size, img_shape[0]),
-                    min(existing_coords[4]+crop_size, img_shape[1]),
-                    min(existing_coords[5]+crop_size, img_shape[2])
-                )
-            else:
-                limit_box = [0, 0, 0, *img_shape]
-
+        for _ in range(max_retries):
             new_coords = self._sample_coords(crop_size, limit_box)
             iou = self.iou3d(existing_coords, new_coords)
             if iou >= self._min_iou and iou <= self._max_iou:
-                break 
+                return new_coords, True
 
-        return new_coords
+        return new_coords, False
 
     def __call__(self, data):
         coords1, coords2 = self.randomize(data[first(self.keys)].shape)
