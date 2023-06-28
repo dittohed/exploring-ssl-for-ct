@@ -317,7 +317,7 @@ if __name__ == '__main__':
 
     if args.use_wandb:
         wandb.init(
-            project='exploring-ssl-for-ct',
+            project='exploring-ssl-for-ct-pre',
             name=args.run_name,
             config=vars(args)
         )
