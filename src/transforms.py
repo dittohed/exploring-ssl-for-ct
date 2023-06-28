@@ -7,7 +7,6 @@ from monai.config import KeysCollection
 from monai.utils import first
 
 
-# TODO: doublecheck, verify there's no coords issue
 # TODO: add type hints and args
 class IoUCropd(T.Randomizable, T.MapTransform):
     """
@@ -87,8 +86,8 @@ class IoUCropd(T.Randomizable, T.MapTransform):
                 
             if retries_total >= self._max_retries_total:
                 print(
-                    (f'Pair not found within {self._max_retries_total} steps, ')
-                    ('returning random crops')
+                    f'''Pair not found within {self._max_retries_total} steps, '''
+                    '''returning random crops.'''
                 )
                 break
 
