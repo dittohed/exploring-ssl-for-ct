@@ -30,7 +30,7 @@ def get_args_parser():
         help='Swin backbone base embedding size (C from the paper).')
     parser.add_argument('--drop_path_rate', default=0.1, type=float,
         help='`drop_path_rate` for monai.networks.nets.swin_unetr.SwinTransformer.')
-    parser.add_argument('--use_gradient_checkpointing', action='store_true',  # TODO: could try
+    parser.add_argument('--use_gradient_checkpointing', action='store_true',
         help='Whether to use gradient checkpointing (saves memory, longer training).')
     
     # DINO head params

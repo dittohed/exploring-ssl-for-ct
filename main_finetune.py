@@ -35,7 +35,7 @@ def get_args_parser():
     # Swin params
     parser.add_argument('--embedding_size', default=48, type=int,
         help='Swin backbone base embedding size (C from the paper).')
-    parser.add_argument('--use_gradient_checkpointing', action='store_true',  # TODO: could try
+    parser.add_argument('--use_gradient_checkpointing', action='store_true',
         help='Whether to use gradient checkpointing (saves memory, longer training).')
     
     # Data params
