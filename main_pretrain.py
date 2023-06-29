@@ -90,6 +90,9 @@ def get_args_parser():
         help='Lambda for momentum teacher update.')
     parser.add_argument('--accum_iters', type=int, default=1,
         help='How many backward passes to calculate before calling optimizer.step().')
+    parser.add_argument('--freeze_last_layer', default=1, type=int, 
+        help='''Number of epochs during which output layer is kept fixed. Typically doing so during
+        the first epoch helps training. Try increasing this value if the loss does not decrease.''')
 
     # Other params
     parser.add_argument('--run_name', default='test_ssl', type=str,
@@ -162,6 +165,9 @@ def train_one_epoch(student, teacher, loss_fn, train_loader, iters_per_epoch,
             scaler.scale(loss).backward()
         else:
             loss.backward()
+
+        utils.cancel_gradients_last_layer(
+            epoch, student, args.freeze_last_layer)
 
         # If next batch belongs to a new logical batch
         # i.e. this is the last batch to accumulate

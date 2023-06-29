@@ -29,6 +29,21 @@ def get_param_groups(model: torch.nn.Module):
     ]
 
 
+def cancel_gradients_last_layer(epoch, model, freeze_last_layer):
+    """
+    Slightly modified version from:
+    https://github.com/facebookresearch/dino/blob/main/utils.py.
+
+    Freeze last layer's parameters to facilite training in first epochs.
+    """
+
+    if epoch >= freeze_last_layer:
+        return
+    for n, p in model.named_parameters():
+        if 'last_layer' in n:
+            p.grad = None
+
+
 def cosine_scheduler(
         base_val, end_val, n_epochs, iters_per_epoch, warmup_epochs=0, 
         start_warmup_value=0):
