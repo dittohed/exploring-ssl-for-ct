@@ -207,7 +207,7 @@ def train_one_epoch(student, teacher, loss_fn, train_loader, iters_per_epoch,
         'train/loss': avg_loss.item(),
         'train/lr': lr_schedule[step],
         'train/wd': wd_schedule[step],
-        'train_momentum': momentum_schedule[step]
+        'train/momentum': momentum_schedule[step]
     }
     return log_dict
 
