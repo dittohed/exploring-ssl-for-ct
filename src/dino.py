@@ -86,8 +86,6 @@ class Head(nn.Module):
 
     def __init__(self, in_dim, out_dim, hidden_dim=2048, bottleneck_dim=256):
         super().__init__()
-        # TODO: add layer norm if unstable
-     
         layers = [
             nn.Linear(in_dim, hidden_dim), nn.GELU(),
             nn.Linear(hidden_dim, hidden_dim), nn.GELU(),
