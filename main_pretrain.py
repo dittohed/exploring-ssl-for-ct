@@ -93,6 +93,8 @@ def get_args_parser():
     parser.add_argument('--freeze_last_layer', default=1, type=int, 
         help='''Number of epochs during which output layer is kept fixed. Typically doing so during
         the first epoch helps training. Try increasing this value if the loss does not decrease.''')
+    parser.add_argument('--clip_grad', type=float, default=3.0, 
+        help='Maximal parameter gradient norm if using gradient clipping.')
 
     # Other params
     parser.add_argument('--run_name', default='test_ssl', type=str,
@@ -166,9 +168,6 @@ def train_one_epoch(student, teacher, loss_fn, train_loader, iters_per_epoch,
         else:
             loss.backward()
 
-        utils.cancel_gradients_last_layer(
-            epoch, student, args.freeze_last_layer)
-
         # If next batch belongs to a new logical batch
         # i.e. this is the last batch to accumulate
         if (batch_idx+1) % args.accum_iters == 0:
@@ -180,11 +179,21 @@ def train_one_epoch(student, teacher, loss_fn, train_loader, iters_per_epoch,
                 if i == 0:  # Only the first group is regularized
                     param_group['weight_decay'] = wd_schedule[step]
 
+            utils.cancel_gradients_last_layer(
+                epoch, student, args.freeze_last_layer)
+
             if args.use_amp:
+                if args.clip_grad:
+                    scaler.unscale_(optimizer)
+                    param_norms = utils.clip_gradients(student, args.clip_grad)
                 scaler.step(optimizer)
                 scaler.update()
             else:
+                if args.clip_grad:
+                    param_norms = utils.clip_gradients(student, args.clip_grad)
                 optimizer.step()
+
+            print(param_norms[param_norms>3])
             optimizer.zero_grad()
 
             # Update teacher weights using EMA
