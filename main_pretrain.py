@@ -185,15 +185,14 @@ def train_one_epoch(student, teacher, loss_fn, train_loader, iters_per_epoch,
             if args.use_amp:
                 if args.clip_grad:
                     scaler.unscale_(optimizer)
-                    param_norms = utils.clip_gradients(student, args.clip_grad)
+                    utils.clip_gradients(student, args.clip_grad)
                 scaler.step(optimizer)
                 scaler.update()
             else:
                 if args.clip_grad:
-                    param_norms = utils.clip_gradients(student, args.clip_grad)
+                    utils.clip_gradients(student, args.clip_grad)
                 optimizer.step()
 
-            print(param_norms[param_norms>3])
             optimizer.zero_grad()
 
             # Update teacher weights using EMA

@@ -5,11 +5,6 @@ import torch.distributed as dist
 import numpy as np
 
 
-# TODO
-# Doublecheck with
-# https://www.youtube.com/watch?v=psmMEWKk4Uk
-
-
 class Loss(nn.Module):
     """
     Implements loss as described in https://arxiv.org/pdf/2104.14294.pdf.
@@ -61,9 +56,6 @@ class Loss(nn.Module):
         Update center used for teacher output.
         """
 
-        # TODO: doublecheck for multiple GPUs
-        # dist.all_reduce(batch_center)
-        # batch_center = batch_center / (len(out_t) * dist.get_world_size())
         self.center = (self.center * self.center_momentum 
                       + batch_center * (1 - self.center_momentum))
 
