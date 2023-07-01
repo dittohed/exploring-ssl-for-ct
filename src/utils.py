@@ -1,7 +1,118 @@
 import numpy as np
 import torch
 import matplotlib.pyplot as plt
+import torchvision.transforms as transforms
+from PIL import Image
 
+
+class DataAugmentation:
+    """Create crops of an input image together with additional augmentation.
+
+    It generates 2 global crops and `n_local_crops` local crops.
+
+    Parameters
+    ----------
+    global_crops_scale : tuple
+        Range of sizes for the global crops.
+
+    local_crops_scale : tuple
+        Range of sizes for the local crops.
+
+    n_local_crops : int
+        Number of local crops to create.
+
+    size : int
+        The size of the final image.
+
+    Attributes
+    ----------
+    global_1, global_2 : transforms.Compose
+        Two global transforms.
+
+    local : transforms.Compose
+        Local transform. Note that the augmentation is stochastic so one
+        instance is enough and will lead to different crops.
+    """
+    def __init__(
+        self,
+        global_crops_scale=(0.4, 1),
+        local_crops_scale=(0.05, 0.4),
+        n_local_crops=8,
+        size=224,
+    ):
+        self.n_local_crops = n_local_crops
+        RandomGaussianBlur = lambda p: transforms.RandomApply(  # noqa
+            [transforms.GaussianBlur(kernel_size=5, sigma=(0.1, 2))],
+            p=p,
+        )
+
+        flip_and_jitter = transforms.Compose(
+            [
+                transforms.RandomHorizontalFlip(p=0.5),
+                transforms.RandomApply(
+                    [
+                        transforms.ColorJitter(
+                            brightness=0.4,
+                            contrast=0.4,
+                            saturation=0.2,
+                            hue=0.1,
+                        ),
+                    ]
+                ),
+                transforms.RandomGrayscale(p=0.2),
+            ]
+        )
+
+        normalize = transforms.Compose(
+            [
+                transforms.ToTensor(),
+                transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
+            ]
+        )
+
+        self.global_1 = transforms.Compose(
+            [
+                transforms.RandomResizedCrop(
+                    size,
+                    scale=global_crops_scale,
+                    interpolation=Image.BICUBIC,
+                ),
+                flip_and_jitter,
+                RandomGaussianBlur(1.0),  # always apply
+                normalize,
+            ],
+        )
+
+        self.global_2 = transforms.Compose(
+            [
+                transforms.RandomResizedCrop(
+                    size,
+                    scale=global_crops_scale,
+                    interpolation=Image.BICUBIC,
+                ),
+                flip_and_jitter,
+                RandomGaussianBlur(0.1),
+                transforms.RandomSolarize(170, p=0.2),
+                normalize,
+            ],
+        )
+
+        self.local = transforms.Compose(
+            [
+                transforms.RandomResizedCrop(
+                    size,
+                    scale=local_crops_scale,
+                    interpolation=Image.BICUBIC,
+                ),
+                flip_and_jitter,
+                RandomGaussianBlur(0.5),
+                normalize,
+            ],
+        )
+
+    def __call__(self, img):
+        return self.global_1(img), self.local(img)
+    
 
 def get_param_groups(model: torch.nn.Module):
     """

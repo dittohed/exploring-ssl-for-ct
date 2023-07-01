@@ -8,7 +8,7 @@ class Backbone(torch.nn.Module):
     def __init__(self, args):
         super(Backbone, self).__init__()
         self.model = SwinTransformer(
-            in_chans=1,
+            in_chans=3,
             embed_dim=args.embedding_size,
             window_size=ensure_tuple_rep(7, args.spatial_dims),
             patch_size=ensure_tuple_rep(2, args.spatial_dims),
@@ -26,7 +26,7 @@ class Backbone(torch.nn.Module):
 
     def forward(self, x):
         x = self.model(x)[-1]  # Take the deepest feature map
-        b, dim, _, _, _ = x.shape
+        b, dim, _, _ = x.shape
 
         # Mean over spatial dimensions
         # TODO: why did the authors use just the first subcube?

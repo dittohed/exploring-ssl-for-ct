@@ -10,7 +10,9 @@ import torch.nn as nn
 import torch.optim as optim
 
 from tqdm import tqdm
-from monai.data import DataLoader, Dataset
+from torch.utils.data import DataLoader
+from torchvision.datasets import ImageFolder
+
 from monai.utils import set_determinism
 
 import src.utils as utils
@@ -46,7 +48,7 @@ def get_args_parser():
         help='Number of warmup epochs for the teacher temperature.')
     
     # Data params
-    parser.add_argument('--spatial_dims', default=3, type=int, 
+    parser.add_argument('--spatial_dims', default=2, type=int, 
         help='Spatial dimension of input data, either 2 for 2D or 3 for 3D')
     parser.add_argument('--a_min', default=-500, type=float, 
         help='`a_min` in monai.transforms.ScaleIntensityRanged')
@@ -127,26 +129,17 @@ def train_one_epoch(student, teacher, loss_fn, train_loader, iters_per_epoch,
     tqdm_it = tqdm(train_loader, total=iters_per_epoch*args.accum_iters, leave=True)
     tqdm_it.set_description(f'Epoch: [{epoch+1}/{args.n_epochs}]')
 
-    for batch_idx, data_dict in enumerate(tqdm_it):
+    for batch_idx, data in enumerate(tqdm_it):
         # Check logical batch number and skip for last incomplete batch
         if batch_idx // args.accum_iters == iters_per_epoch:
             break
 
-        # Prepare input
-        x1, x2 = data_dict['img1'], data_dict['img2']
-
-        if args.low_resource_mode:
-            x_student = x1.to(device)
-            x_teacher = x2.to(device)
-        else:
-            # Concat to calculate the loss symmetrically
-            x_student = torch.cat([x1, x2]).to(device)
-            x_teacher = torch.cat([x2, x1]).to(device)
+        imgs = data[0]
 
         with torch.cuda.amp.autocast(enabled=(scaler is not None)):
             # Forward pass
-            out_student = student(x_student)
-            out_teacher = teacher(x_teacher)
+            out_student = student(imgs[1].to(device))  # local
+            out_teacher = teacher(imgs[0].to(device))  # global
 
             with torch.no_grad():
                 batch_center += (
@@ -230,14 +223,14 @@ def main(args):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     set_determinism(args.seed)
 
-    # Prepare data
-    dataset = Dataset(
-        data=get_ssl_data(args.data_dir), 
-        transform=get_ssl_transforms(args, args.preprocess_mode, device))
+    transform_aug = utils.DataAugmentation(size=224)
+    dataset = ImageFolder('imagenette2-320/train', transform=transform_aug)
     data_loader = DataLoader(
-        dataset, 
+        dataset,
         batch_size=args.batch_size_per_gpu,
-        num_workers=args.num_workers
+        shuffle=True,
+        drop_last=False,
+        num_workers=0
     )
 
     # Prepare models
