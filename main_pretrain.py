@@ -26,7 +26,7 @@ def get_args_parser():
     parser = argparse.ArgumentParser('Pretrain CT')
 
     # Swin params
-    parser.add_argument('--embedding_size', default=48, type=int,
+    parser.add_argument('--embedding_size', default=24, type=int,
         help='Swin backbone base embedding size (C from the paper).')
     parser.add_argument('--drop_path_rate', default=0.1, type=float,
         help='`drop_path_rate` for monai.networks.nets.swin_unetr.SwinTransformer.')
@@ -46,7 +46,7 @@ def get_args_parser():
         help='Number of warmup epochs for the teacher temperature.')
     
     # Data params
-    parser.add_argument('--spatial_dims', default=3, type=int, 
+    parser.add_argument('--spatial_dims', default=2, type=int, 
         help='Spatial dimension of input data, either 2 for 2D or 3 for 3D')
     parser.add_argument('--a_min', default=-500, type=float, 
         help='`a_min` in monai.transforms.ScaleIntensityRanged')
