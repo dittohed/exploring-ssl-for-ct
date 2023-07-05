@@ -7,20 +7,21 @@ from monai.config import KeysCollection
 from monai.utils import first
 
 
-# TODO: add type hints and args
+# TODO: add type hints
 class IoUCropd(T.Randomizable, T.MapTransform):
     """
     MONAI-style transformation implementing IoU-based cropping.
 
-    Firstly, a random subvolume is cropped, then another one so that
+    Firstly, a random patch is cropped, then another one so that
     its IoU with the first one is within [`min_iou`, `max_iou`] range.
 
-    Both subvolumes are cubes with side lengths of `crop_size`.
+    Both resulting crops are squares/cubes with side lengths of `crop_size`.
 
     Args:
         keys (monai.config.KeysCollection): keys of a data dictionary for which
             the transformation should be applied.
-        crop_size (int): subvolumes side lenghts.
+        spatial_dims (int): input spatial dimensions, either 2 for 2D or 3 for 3D.
+        crop_size (int): side lenghts.
         min_iou (float): lower bound of IoU range.
         max_iou (float): upper bound of IoU range.
         max_retries_existing (int): how many times to sample second crop coords
@@ -35,15 +36,17 @@ class IoUCropd(T.Randomizable, T.MapTransform):
     """
 
     def __init__(
-            self, keys: KeysCollection, crop_size: int = 96, 
+            self, keys: KeysCollection, spatial_dims: int, crop_size: int = 96, 
             min_iou: float = 0.0, max_iou: float = 1.0, 
             max_retries_existing: int = 20,
             max_retries_total: int = 60, debug=False):
+        assert spatial_dims in [2, 3]
         assert min_iou <= max_iou
 
         super(IoUCropd, self).__init__(keys)
 
         self._crop_size = crop_size
+        self._spatial_dims = spatial_dims
         self._min_iou = min_iou
         self._max_iou = max_iou
         self._max_retries_existing = max_retries_existing
@@ -57,11 +60,26 @@ class IoUCropd(T.Randomizable, T.MapTransform):
     ) -> 'IoUCropd':
         super().set_random_state(seed, state)
         return self
+    
+    def _get_limit_box(self, shape: list) -> list:
+        """
+        Return a list of format [x1, y1, ..., x2, y2, ...]
+        denoting a rectangle/volume covering whole original image of shape 
+        `shape` in format [x1, y1, ...].
+        """
+
+        limit_box = [
+            *list(np.zeros(self._spatial_dims, dtype=int)),
+            *shape
+        ]
+
+        return limit_box
 
     def randomize(self, shape) -> tuple:
-        # Leave spatial dims only and enforce x, y, z order 
-        # instead of y, x, z order
-        shape = list(shape[-3:])
+        # Leave spatial dims only and enforce x-first order
+        # instead of y-first order
+        # TODO: this is probably not needed, simplify
+        shape = list(shape[-self._spatial_dims:])  # TODO: doublecheck
         shape[0], shape[1] = shape[1], shape[0]
 
         retries_total = 0
@@ -69,7 +87,7 @@ class IoUCropd(T.Randomizable, T.MapTransform):
             # Sample first crop
             existing_coords = self._sample_coords(
                 crop_size=self._crop_size, 
-                limit_box=[0, 0, 0, *shape]
+                limit_box=self._get_limit_box(shape)
             )
             
             # Sample second crop
@@ -93,47 +111,63 @@ class IoUCropd(T.Randomizable, T.MapTransform):
 
         return existing_coords, iou_coords
 
-    def _sample_coords(self, crop_size, limit_box):
+    def _sample_coords(self, crop_size: int, limit_box: list) -> tuple:
         """
-        Sample minimum coord (x1, y1, z1) and maximum coord (x2, y2, z2) 
-        of a cube crop with a side length of `crop_size` so that it fully  
-        stays within `limit_box` (prevents cropping outside of a desired volume).
+        Sample minimum coord in format [x1, y1, ...] and maximum coord 
+        in format [x2, y2, ...] of a crop with a side length `crop_size` so that 
+        it fully stays within `limit_box` (prevents cropping outside of a 
+        desired rectangle/volume).
         """
 
-        x1 = self.R.randint(limit_box[0], limit_box[3]-crop_size+1)
-        y1 = self.R.randint(limit_box[1], limit_box[4]-crop_size+1)
-        z1 = self.R.randint(limit_box[2], limit_box[5]-crop_size+1)
-
-        return x1, y1, z1, x1+crop_size, y1+crop_size, z1+crop_size
+        if self._spatial_dims == 2:
+            x1 = self.R.randint(limit_box[0], limit_box[2]-crop_size+1)
+            y1 = self.R.randint(limit_box[1], limit_box[3]-crop_size+1)
+            coords = (x1, y1, x1+crop_size, y1+crop_size)
+        else:
+            x1 = self.R.randint(limit_box[0], limit_box[3]-crop_size+1)
+            y1 = self.R.randint(limit_box[1], limit_box[4]-crop_size+1)
+            z1 = self.R.randint(limit_box[2], limit_box[5]-crop_size+1)
+            coords = (x1, y1, z1, x1+crop_size, y1+crop_size, z1+crop_size)
+        
+        return coords
     
     def _sample_coords_iou(self, existing_coords, crop_size, img_shape,
             max_retries):
         """
-        Sample minimum coord (x1, y1, z1) and maximum coord (x2, y2, z2) 
-        of a cube crop with a side length of `crop_size` so that it has
-        IoU from a specified range with a cube crop defined by 
+        Sample minimum coord in format [x1, y1, ...] and maximum coord
+        in format [x2, y2, ...] of a crop with a side length of `crop_size` so 
+        that it has IoU from a specified range with a crop defined by 
         `existing_coords`.
 
         Returns `new_coords` with True flag if the new coords were found
         within `max_retries` steps, otherwise False flag is returned.
         """
+        
         if self._min_iou > 0:
-            # Speed up by restricting only to volume 
+            # Speed up by restricting only to square/volume 
             # adjacent to `existing_coords` crop
-            limit_box = (
-                max(existing_coords[0]-crop_size, 0),
-                max(existing_coords[1]-crop_size, 0),
-                max(existing_coords[2]-crop_size, 0),
-                min(existing_coords[3]+crop_size, img_shape[0]),
-                min(existing_coords[4]+crop_size, img_shape[1]),
-                min(existing_coords[5]+crop_size, img_shape[2])
-            )
+            if self._spatial_dims == 2:
+                limit_box = (
+                    max(existing_coords[0]-crop_size, 0),
+                    max(existing_coords[1]-crop_size, 0),
+                    min(existing_coords[2]+crop_size, img_shape[0]),
+                    min(existing_coords[3]+crop_size, img_shape[1])
+                ) 
+            else:
+                limit_box = (
+                    max(existing_coords[0]-crop_size, 0),
+                    max(existing_coords[1]-crop_size, 0),
+                    max(existing_coords[2]-crop_size, 0),
+                    min(existing_coords[3]+crop_size, img_shape[0]),
+                    min(existing_coords[4]+crop_size, img_shape[1]),
+                    min(existing_coords[5]+crop_size, img_shape[2])
+                )
         else:
-            limit_box = [0, 0, 0, *img_shape]
+            limit_box = self._get_limit_box(img_shape)
 
         for _ in range(max_retries):
             new_coords = self._sample_coords(crop_size, limit_box)
-            iou = self.iou3d(existing_coords, new_coords)
+            iou = self._iou(existing_coords, new_coords)
             if iou >= self._min_iou and iou <= self._max_iou:
                 return new_coords, True
 
@@ -144,31 +178,76 @@ class IoUCropd(T.Randomizable, T.MapTransform):
 
         d = dict(data)
         for key in self.keys:
-            d[f'{key}1'] = self._cropper(d[key], self.coords_to_slices(coords1))
-            d[f'{key}2'] =  self._cropper(d[key], self.coords_to_slices(coords2))
+            d[f'{key}1'] = self._cropper(d[key], self._coords_to_slices(coords1))
+            d[f'{key}2'] =  self._cropper(d[key], self._coords_to_slices(coords2))
 
             if self._debug:
-                d[f'{key}1_coords'] = coords1 
-                d[f'{key}2_coords'] = coords2
+                d[f'{key}1_slices'] = self._coords_to_slices(coords1) 
+                d[f'{key}2_slices'] = self._coords_to_slices(coords2)
             else: 
-                del d[key]
+                del d[key]  # Remove original image
 
         return d
     
-    @staticmethod
-    def coords_to_slices(coords):
+    def _coords_to_slices(self, coords):
         """
-        Convert [x1, y1, z1, x2, y2, z2] list denoting minimum and maximum coords 
-        of a cube crop to [y1 : y2, x1 : x2, z1 : z2] slice for monai.transforms.Crop.
+        Convert [x1, y1, ..., x2, y2, ...] list denoting first minimum, then 
+        maximum coords of a crop to [y1 : y2, x1 : x2, ...] slice 
+        for monai.transforms.Crop.
         """ 
 
-        slices = [
-            slice(coords[1], coords[4]),
-            slice(coords[0], coords[3]),
-            slice(coords[2], coords[5])
-        ]
+        if self._spatial_dims == 2:
+            slices = [
+                slice(coords[1], coords[3]),
+                slice(coords[0], coords[2]),
+            ]
+        else:
+            slices = [
+                slice(coords[1], coords[4]),
+                slice(coords[0], coords[3]),
+                slice(coords[2], coords[5])
+            ]
 
         return slices
+
+    def _iou(self, a, b):
+        """
+        Calcute IoU between crops `a` and `b`, where each is 
+        a list [x1, y1, ..., x2, y2, ...] denoting minimum and maximum coords.
+        """
+
+        if self._spatial_dims == 2:
+            iou = self.iou2d(a, b)
+        else:
+            iou = self.iou3d(a, b)
+
+        return iou
+
+    @staticmethod
+    def iou2d(a, b):
+        """
+        Calcute IoU between rectangular crops `a` and `b`, where each is 
+        a list [x1, y1, x2, y2] denoting minimum and maximum coords.
+        """
+
+        x1 = max(a[0], b[0])
+        y1 = max(a[1], b[1])
+        x2 = min(a[2], b[2])
+        y2 = min(a[3], b[3])
+
+        width = x2 - x1
+        height = y2 - y1
+
+        # Not intersecting
+        if width <= 0 or height <= 0:
+            return 0
+        
+        area_inter = width * height
+        area_a = (a[2]-a[0]) * (a[3]-a[1])
+        area_b = (b[2]-b[0]) * (b[3]-b[1])
+        area_union = area_a + area_b - area_inter
+
+        return area_inter / area_union
 
     @staticmethod
     def iou3d(a, b):
