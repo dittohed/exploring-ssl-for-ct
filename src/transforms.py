@@ -200,7 +200,12 @@ class IoUCropd(T.Randomizable, T.MapTransform):
         return vol_inter / vol_union
     
 
-def get_ssl_rand_transforms(key):
+def get_ssl_rand_transforms(key: str, spatial_dims: int) -> list:
+    """
+    Return random img transforms to be applied on a single image
+    from a positive pair.
+    """
+
     transforms = [
         T.RandZoomd(
             keys=[key], 
@@ -219,12 +224,19 @@ def get_ssl_rand_transforms(key):
             keys=[key], 
             spatial_axis=1,
             prob=0.5
-        ),
-        T.RandFlipd(
-            keys=[key], 
-            spatial_axis=2,
-            prob=0.5
-        ),
+        )
+    ]
+
+    if spatial_dims == 3:
+        transforms.append(
+            T.RandFlipd(
+                keys=[key], 
+                spatial_axis=2,
+                prob=0.5
+            )
+        )
+
+    transforms.extend([
         T.RandRotate90d(
             keys=[key], 
             max_k=3,
@@ -249,102 +261,278 @@ def get_ssl_rand_transforms(key):
             std=0.01,
             prob=0.25
         )
-    ]
+    ])
 
     return transforms
 
 
-def get_ssl_transforms(args, mode='full', device=None):
+def get_preprocess_transforms_2d(args, mode='finetune') -> T.Compose:
     """
-    Return img transforms for pretraining.
+    Return img transforms for 2D preprocessing within 
+    a preprocessing script.
 
-    For `mode` use one of the following:
-    * 'full' for full preprocessing of images each time they're loaded 
-        during pretraining;
-    * 'light' to skip basic preprocessing during pretraining (should be only 
-        used for images already processed with `preprocess` mode);
-    * 'preprocess' for preprocessing images before actual pretraining so that 
-        'light' mode can be further used during pretraining.
+    Resulting images should be further loaded using 
+    `get_finetune_transforms_2d` if using 'finetune' mode or 
+    `get_ssl_transforms_2d` if using 'ssl' mode.
     """
+    
+    assert mode in ['finetune', 'ssl']
+    keys = ['img'] if mode == 'ssl' else ['img', 'label']
+    interpol = ('bilinear') if mode == 'ssl' else ('bilinear', 'nearest')
 
-    assert mode in ['full', 'light', 'preprocess']
-
-    if mode == 'light':
-        transforms = [
-            T.LoadImaged(
-                keys=['img']
-            ),
-            T.EnsureChannelFirstd(
-                keys=['img']
-            ),
-            T.EnsureTyped(  
-                keys=['img'], 
-                track_meta=False
-            )
-        ]
-    else:
-        transforms = [
-            T.LoadImaged(
-                keys=['img']
-            ),
-            T.EnsureChannelFirstd(
-                keys=['img']
-            ),
-            T.Orientationd(
-                keys=['img'], 
-                axcodes='RAS'
-            ),
-            T.Spacingd(
-                keys=['img'], 
-                pixdim=(args.size_y, args.size_x, args.size_z), 
-                mode=('bilinear')
-            ),
-            T.ScaleIntensityRanged(
-                keys=['img'], 
-                a_min=args.a_min, 
-                a_max=args.a_max,
-                b_min=0.0, 
-                b_max=1.0, 
-                clip=True
-            ),
-            T.CropForegroundd(
-                keys=['img'], 
-                source_key='img'
-            ),
-            T.SpatialPadd(
-                keys=['img'], 
-                spatial_size=(96, 96, 96)
-            ),
-            T.EnsureTyped(
-                keys=['img'], 
-                track_meta=False
-            )
-        ]
-
-    if mode == 'preprocess':
-        print(f'The following transforms pipeline will be used: {transforms}.')
-        return T.Compose(transforms) 
-    else:
-        transforms.extend([
-            IoUCropd(
-                keys=['img'], 
-                min_iou=args.min_iou, 
-                max_iou=args.max_iou
-            ),
-            T.EnsureTyped(
-                keys=['img1', 'img2'], 
-                track_meta=False,
-                device=device
-            ),
-            *get_ssl_rand_transforms('img1'),
-            *get_ssl_rand_transforms('img2')
-        ])
+    transforms = [
+        T.LoadImaged(
+            keys=keys
+        ),
+        T.EnsureChannelFirstd(
+            keys=keys
+        ),
+        T.Orientationd(
+            keys=keys, 
+            axcodes='RAS'
+        ),
+        T.Spacingd(
+            keys=keys, 
+            pixdim=(args.size_y, args.size_x, args.size_z),
+            mode=interpol
+        ),
+        T.ScaleIntensityRanged(
+            keys=['img'], 
+            a_min=args.a_min, 
+            a_max=args.a_max,
+            b_min=0.0, 
+            b_max=1.0, 
+            clip=True
+        ),
+        T.CropForegroundd(
+            keys=keys, 
+            source_key='img'
+        ),
+        T.SpatialPadd(
+            keys=keys, 
+            spatial_size=(96, 96, -1)
+        )
+    ]
 
     print(f'The following transforms pipeline will be used: {transforms}.')
     return T.Compose(transforms)
 
 
-def get_finetune_transforms(args, device):
+def get_ssl_transforms_2d(args, device=None) -> T.Compose:
+    """
+    Return img transforms for 2D pretraining.
+
+    Input images should be first processed using 
+    `get_preprocess_transforms_2d` within a preprocessing script.
+    """
+
+    transforms = [
+        T.LoadImaged(
+            keys=['img']
+        ),
+        T.EnsureChannelFirstd(
+            keys=['img']
+        ),
+        T.EnsureTyped(
+            keys=['img'], 
+            track_meta=False,
+            device=device
+        ),
+        IoUCropd(
+            keys=['img'], 
+            spatial_dims=2,  # TODO
+            min_iou=args.min_iou, 
+            max_iou=args.max_iou
+        ),
+        T.EnsureTyped(
+            keys=['img1', 'img2'], 
+            track_meta=False,
+            device=device
+        ),
+        *get_ssl_rand_transforms('img1', spatial_dims=2),
+        *get_ssl_rand_transforms('img2', spatial_dims=2)
+    ]
+
+    print(f'The following transforms pipeline will be used: {transforms}.')
+    return T.Compose(transforms)
+
+
+def get_finetune_transforms_2d(device=None) -> tuple:
+    """
+    Return img transforms for 2D fine-tuning.
+
+    Input images should be first processed using 
+    `get_preprocess_transforms_2d` within a preprocessing script.
+    """
+
+    # Same for trainining and validation
+    base_transforms = [
+        T.LoadImaged(
+            keys=['img', 'label']
+        ),
+        T.EnsureChannelFirstd(
+            keys=['img', 'label']
+        ),
+        T.EnsureTyped(
+            keys=['img', 'label'], 
+            track_meta=False,
+            device=device
+        )
+    ]
+
+    train_transforms = [
+        *base_transforms,
+        T.RandCropByPosNegLabeld(
+            keys=['img', 'label'],
+            label_key='label',
+            spatial_size=(96, 96),
+            pos=1,
+            neg=1,
+            num_samples=2  # TODO: add info to CLI accordingly
+        ),
+        T.RandGaussianSmoothd(
+            keys=['img'],
+            prob=0.15
+        ),
+        T.RandScaleIntensityd(
+            keys=['img'], 
+            factors=0.1, 
+            prob=0.15
+        ),
+        T.RandShiftIntensityd(
+            keys=['img'], 
+            offsets=0.1, 
+            prob=0.15
+        ),
+        T.RandGaussianNoised(
+            keys=['img'],
+            std=0.01,
+            prob=0.15
+        ),
+        T.RandFlipd(
+            keys=['img', 'label'], 
+            spatial_axis=0,
+            prob=0.25
+        ),
+        T.RandFlipd(
+            keys=['img', 'label'], 
+            spatial_axis=1,
+            prob=0.25
+        ),
+        T.RandRotate90d(
+            keys=['img', 'label'], 
+            max_k=3,
+            prob=0.25
+            )
+    ]
+
+    print(f'''The following transforms pipeline will be used 
+              for training: {train_transforms}.''')
+    print(f'''The following transforms pipeline will be used 
+              for validation: {base_transforms}.''')
+    
+    return (T.Compose(train_transforms), T.Compose(base_transforms))
+
+
+def get_preprocess_transforms_3d(args) -> T.Compose:
+    """
+    Return img transforms for 3D preprocessing within 
+    a preprocessing script.
+
+    Resulting images should be further loaded using 
+    `get_ssl_transforms_3d`. Preprocessing for 3D finetuning isn't
+    implemented as for 2D, using `monai.data.PersistentDataset` instead should
+    be enough.
+    """
+
+    transforms = [
+        T.LoadImaged(
+            keys=['img']
+        ),
+        T.EnsureChannelFirstd(
+            keys=['img']
+        ),
+        T.Orientationd(
+            keys=['img'], 
+            axcodes='RAS'
+        ),
+        T.Spacingd(
+            keys=['img'], 
+            pixdim=(args.size_y, args.size_x, args.size_z), 
+            mode=('bilinear')
+        ),
+        T.ScaleIntensityRanged(
+            keys=['img'], 
+            a_min=args.a_min, 
+            a_max=args.a_max,
+            b_min=0.0, 
+            b_max=1.0, 
+            clip=True
+        ),
+        T.CropForegroundd(
+            keys=['img'], 
+            source_key='img'
+        ),
+        T.SpatialPadd(
+            keys=['img'], 
+            spatial_size=(96, 96, 96)
+        ),
+        T.EnsureTyped(
+            keys=['img'], 
+            track_meta=False
+        )
+    ]
+
+    print(f'The following transforms pipeline will be used: {transforms}.')
+    return T.Compose(transforms)
+
+
+def get_ssl_transforms_3d(args, device=None):
+    """
+    Return img transforms for 3D pretraining.
+
+    Input images should be first processed using 
+    `get_preprocess_transforms_3d` within a preprocessing script.
+    """
+
+    transforms = [
+        T.LoadImaged(
+            keys=['img']
+        ),
+        T.EnsureChannelFirstd(
+            keys=['img']
+        ),
+        T.EnsureTyped(  
+            keys=['img'], 
+            track_meta=False
+        ),
+        IoUCropd(
+            keys=['img'], 
+            spatial_dims=3,  # TODO
+            min_iou=args.min_iou, 
+            max_iou=args.max_iou
+        ),
+        T.EnsureTyped(
+            keys=['img1', 'img2'], 
+            track_meta=False,
+            device=device
+        ),
+        *get_ssl_rand_transforms('img1', spatial_dims=3),
+        *get_ssl_rand_transforms('img2', spatial_dims=3)
+    ]
+
+    print(f'The following transforms pipeline will be used: {transforms}.')
+    return T.Compose(transforms)
+
+
+def get_finetune_transforms_3d(args, device=None):
+    """
+    Return img transforms for 3D fine-tuning.
+
+    Should be used for training with 3D original, unprocessed data.
+    """
+
+    # Same for trainining and validation
     base_transforms = [
         T.LoadImaged(
             keys=['img', 'label']
@@ -363,8 +551,11 @@ def get_finetune_transforms(args, device):
         ),
         T.ScaleIntensityRanged(
             keys=['img'], 
-            a_min=args.a_min, a_max=args.a_max,
-            b_min=0.0, b_max=1.0, clip=True
+            a_min=args.a_min, 
+            a_max=args.a_max,
+            b_min=0.0, 
+            b_max=1.0, 
+            clip=True
         ),
         T.CropForegroundd(
             keys=['img', 'label'], 
@@ -376,7 +567,7 @@ def get_finetune_transforms(args, device):
         )
     ]
 
-    train_transforms = T.Compose([
+    train_transforms = [
         *base_transforms,
         T.FgBgToIndicesd(
             keys='label',
@@ -438,15 +629,20 @@ def get_finetune_transforms(args, device):
             max_k=3,
             prob=0.25
         )
-    ])
+    ]
 
-    val_transforms = T.Compose([
+    val_transforms = [
         *base_transforms,
         T.EnsureTyped(
             keys=['img', 'label'], 
             track_meta=False,
             device=device
         )
-    ])
+    ]
 
-    return train_transforms, val_transforms
+    print(f'''The following transforms pipeline will be used 
+              for training: {train_transforms}.''')
+    print(f'''The following transforms pipeline will be used 
+              for validation: {val_transforms}.''')
+    
+    return (T.Compose(train_transforms), T.Compose(val_transforms))
