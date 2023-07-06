@@ -1,4 +1,3 @@
-data/
 .vscode
 __pycache__
 .ipynb_checkpoints
@@ -6,3 +5,5 @@ wandb/
 chkpts/
 out/
 cache/
+data/
+!split.json
