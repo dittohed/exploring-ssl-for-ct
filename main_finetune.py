@@ -87,6 +87,8 @@ def get_args_parser():
         help='After how many epochs to evaluate in the training cycle.')
     parser.add_argument('--data_dir', default='./data/finetune', type=str,
         help='Path to training data directory.')
+    parser.add_argument('--split_path', default='./data/split.json', type=str,
+        help='Path to .json file with data split.')
     parser.add_argument('--chkpt_dir', default='./chkpts', type=str, 
         help='Path to checkpoints directory.')
     parser.add_argument('--chkpt_load', default=None, type=str, 
@@ -204,7 +206,10 @@ def main(args):
     torch.backends.cudnn.benchmark = True
 
     # Prepare data
-    train_data, val_data = get_finetune_data(args.data_dir)
+    train_data, val_data = get_finetune_data(
+        Path(args.data_dir),
+        Path(args.split_path)
+    )
     train_transforms, val_transforms = get_finetune_transforms(args, device)
 
     if args.use_persistence:

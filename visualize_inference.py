@@ -58,6 +58,8 @@ def get_args_parser():
     # Other params
     parser.add_argument('--data_dir', default='./data/finetune', type=str,
         help='Path to training data directory.')
+    parser.add_argument('--split_path', default='./data/split.json', type=str,
+        help='Path to .json file with data split.')
     parser.add_argument('--chkpt_path', type=str, 
         help='Path to model checkpoint.')
 
@@ -67,7 +69,10 @@ def get_args_parser():
 def main(args):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    _, data = get_finetune_data(args.data_dir)
+    _, data = get_finetune_data(
+        Path(args.data_dir),
+        Path(args.split_path)
+    )
     _, transforms = get_finetune_transforms(args, device)
 
     ds = Dataset(

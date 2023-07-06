@@ -24,6 +24,8 @@ def get_args_parser():
     
     parser.add_argument('--data_dir', default='./data/finetune', type=str,
         help='Path to original labelled data directory.')
+    parser.add_argument('--split_path', default='./data/split.json', type=str,
+        help='Path to .json file with data split.')
     parser.add_argument('--output_dir', default='./data/finetune_preprocessed_2d', type=str, 
         help='Path to save preprocessed data.')
 
@@ -31,7 +33,10 @@ def get_args_parser():
 
 
 def main(args):
-    train_data, val_data = get_finetune_data(args.data_dir)
+    train_data, val_data = get_finetune_data(
+        Path(args.data_dir),
+        Path(args.split_path)
+    )
     transforms = get_preprocess_transforms_2d(args, mode='finetune')
 
     ds = Dataset(data=train_data+val_data, transform=transforms)

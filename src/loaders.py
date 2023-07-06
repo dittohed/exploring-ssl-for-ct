@@ -8,9 +8,8 @@ def get_ssl_data(data_dir: str):
     return data
 
 
-def get_finetune_data(data_dir: str):
-    data_dir = Path(data_dir)
-    with open(data_dir/'split.json') as json_file:
+def get_finetune_data(data_dir: Path, split_path: Path):
+    with open(split_path) as json_file:
         split = json.load(json_file)
 
     imgs = sorted(list(Path(data_dir/'imgs').glob('*')))
