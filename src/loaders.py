@@ -3,7 +3,7 @@ from pathlib import Path
 
 
 def get_ssl_data(data_dir: str):
-    img_paths = sorted(list(Path(data_dir).glob('*.nii.gz')))
+    img_paths = sorted(list(Path(data_dir).glob('*')))
     data = [{'img': img_path} for img_path in img_paths]
     return data
 
@@ -13,20 +13,27 @@ def get_finetune_data(data_dir: str):
     with open(data_dir/'split.json') as json_file:
         split = json.load(json_file)
 
-    train_data = [
-        {
-            'img': data_dir/Path(f'imgs/{ct_id}_0000.nii.gz'),
-            'label': data_dir/Path(f'labels/{ct_id}.nii.gz')    
-        } 
-        for ct_id in split['train']
-    ]
+    imgs = sorted(list(Path(data_dir/'imgs').glob('*')))
+    labels = sorted(list(Path(data_dir/'labels').glob('*')))
 
-    val_data = [
-        {
-            'img': data_dir/Path(f'imgs/{ct_id}_0000.nii.gz'),
-            'label': data_dir/Path(f'labels/{ct_id}.nii.gz')    
-        } 
-        for ct_id in split['val']
-    ]
+    assert len(imgs) == len(labels)
+
+    train_data = []
+    val_data = []
+
+    for img, label in zip(imgs, labels):
+        ct_id_img = '_'.join(img.name.split('.')[0].split('_')[:3])
+        ct_id_label = '_'.join(label.name.split('.')[0].split('_')[:3])
+
+        assert ct_id_img == ct_id_label
+
+        if ct_id_img in split['train']:
+            train_data.append(
+                {'img': img, 'label': label}
+            )
+        elif ct_id_img in split['val']:
+            val_data.append(
+                {'img': img, 'label': label}
+            )
 
     return train_data, val_data
