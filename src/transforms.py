@@ -444,7 +444,7 @@ def get_ssl_transforms_2d(args, device=None) -> T.Compose:
     return T.Compose(transforms)
 
 
-def get_finetune_transforms_2d(device=None) -> tuple:
+def get_finetune_transforms_2d(args) -> tuple:
     """
     Return img transforms for 2D fine-tuning.
 
@@ -470,20 +470,19 @@ def get_finetune_transforms_2d(device=None) -> tuple:
         ),
         T.EnsureTyped(
             keys=['img', 'label'], 
-            track_meta=False,
-            device=device
+            track_meta=False
         )
     ]
 
     train_transforms = [
         *base_transforms,
-        T.RandCropByPosNegLabeld(  # Will only raise warning for only bg labels
+        T.RandCropByPosNegLabeld(  # Will only raise warning for only-bg labels
             keys=['img', 'label'],
             label_key='label',
             spatial_size=(96, 96),
             pos=1,
             neg=1,
-            num_samples=2  # TODO: add info to CLI accordingly
+            num_samples=args.n_crops_per_ct
         ),
         T.RandGaussianSmoothd(
             keys=['img'],
@@ -673,7 +672,7 @@ def get_finetune_transforms_3d(args, device=None):
         T.EnsureTyped(
             keys=['img', 'label'], 
             track_meta=False,
-            device=device
+            device=device  # Allows performing remaining transforms on GPU
         ),
         T.RandCropByPosNegLabeld(
             keys=['img', 'label'],
@@ -681,7 +680,7 @@ def get_finetune_transforms_3d(args, device=None):
             spatial_size=(96, 96, 96),
             pos=1,
             neg=1,
-            num_samples=args.batch_size_per_gpu,
+            num_samples=args.n_crops_per_ct,
             fg_indices_key='label_fg',
             bg_indices_key='label_bg'
         ),

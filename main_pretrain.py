@@ -67,7 +67,7 @@ def get_args_parser():
 
     # Training params
     parser.add_argument('--use_amp', action='store_true',
-        help='Whether to use AMP for training.')
+        help='Whether to use Automatic Mixed Precision for training.')
     parser.add_argument('--batch_size_per_gpu', default=2, type=int,
         help='''Number of distinct images loaded on a single GPU for which a single
         backward pass will be calculated (just a batch size per GPU if calling with
