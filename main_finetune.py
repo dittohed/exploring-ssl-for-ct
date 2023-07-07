@@ -258,13 +258,15 @@ def main(args):
             train_ds,
             batch_size=args.batch_size,
             num_workers=args.num_workers,
-            shuffle=True
+            shuffle=True,
+            pin_memory=torch.cuda.is_available()
         )
         val_loader = DataLoader(
             val_ds,
             batch_size=1,
             num_workers=args.num_workers,
-            shuffle=False
+            shuffle=False,
+            pin_memory=torch.cuda.is_available()
         )
 
     # Prepare model
