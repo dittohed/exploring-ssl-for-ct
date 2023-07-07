@@ -1,6 +1,7 @@
 import argparse
 
 from pathlib import Path
+from tqdm import tqdm
 from PIL import Image
 from monai.data import DataLoader, Dataset, NibabelWriter
 
@@ -47,7 +48,7 @@ def main(args):
     
     Path(args.output_dir).mkdir(parents=True, exist_ok=True)
 
-    for data in loader:
+    for data in tqdm(loader):
         load_path = Path(data['img_meta_dict']['filename_or_obj'][0])
         load_name = load_path.name.split('.')[0]
 
@@ -61,7 +62,7 @@ def main(args):
                 img_slice.save(save_path)
                 
         elif args.spatial_dims == 3:
-            save_path = args.output_dir / Path(f'{load_name}_processed.nii.gz')
+            save_path = args.output_dir / Path(f'{load_name}.nii.gz')
 
             writer.set_data_array(data['img'][0], channel_dim=0)
             writer.write(save_path, verbose=False)

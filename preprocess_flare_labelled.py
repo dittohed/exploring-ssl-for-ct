@@ -1,6 +1,7 @@
 import argparse
 
 from pathlib import Path
+from tqdm import tqdm
 from PIL import Image
 from monai.data import DataLoader, Dataset
 
@@ -47,7 +48,7 @@ def main(args):
     output_dir_imgs.mkdir(parents=True, exist_ok=True)
     output_dir_labels.mkdir(parents=True, exist_ok=True)
 
-    for data in loader:
+    for data in tqdm(loader):
         n_slices = data['img'][0].shape[-1]
 
         for i in range(n_slices):

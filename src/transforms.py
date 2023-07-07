@@ -348,7 +348,7 @@ def get_ssl_rand_transforms(key: str, spatial_dims: int) -> list:
 def get_preprocess_transforms_2d(args, mode='finetune') -> T.Compose:
     """
     Return img transforms for 2D preprocessing within 
-    a preprocessing script.
+    a preprocessing script (but takes 3D input).
 
     Resulting images should be further loaded using 
     `get_finetune_transforms_2d` if using 'finetune' mode or 
@@ -407,7 +407,15 @@ def get_ssl_transforms_2d(args, device=None) -> T.Compose:
 
     transforms = [
         T.LoadImaged(
-            keys=['img']
+            keys=['img'],
+            reverse_indexing=False  # Don't apply any auto rotation when loading
+        ),
+        T.ScaleIntensityRanged(  # 2D images stored in uint8
+            keys=['img'],
+            a_min=0,
+            a_max=255,
+            b_min=0.0, 
+            b_max=1.0,
         ),
         T.EnsureChannelFirstd(
             keys=['img']
@@ -419,7 +427,7 @@ def get_ssl_transforms_2d(args, device=None) -> T.Compose:
         ),
         IoUCropd(
             keys=['img'], 
-            spatial_dims=2,  # TODO
+            spatial_dims=2,
             min_iou=args.min_iou, 
             max_iou=args.max_iou
         ),
@@ -447,7 +455,15 @@ def get_finetune_transforms_2d(device=None) -> tuple:
     # Same for trainining and validation
     base_transforms = [
         T.LoadImaged(
-            keys=['img', 'label']
+            keys=['img', 'label'],
+            reverse_indexing=False  # Don't apply any auto rotation when loading
+        ),
+        T.ScaleIntensityRanged(  # 2D images stored in uint8
+            keys=['img'],
+            a_min=0,
+            a_max=255,
+            b_min=0.0, 
+            b_max=1.0,
         ),
         T.EnsureChannelFirstd(
             keys=['img', 'label']
@@ -461,7 +477,7 @@ def get_finetune_transforms_2d(device=None) -> tuple:
 
     train_transforms = [
         *base_transforms,
-        T.RandCropByPosNegLabeld(
+        T.RandCropByPosNegLabeld(  # Will only raise warning for only bg labels
             keys=['img', 'label'],
             label_key='label',
             spatial_size=(96, 96),
@@ -502,7 +518,7 @@ def get_finetune_transforms_2d(device=None) -> tuple:
             keys=['img', 'label'], 
             max_k=3,
             prob=0.25
-            )
+        )
     ]
 
     print(f'''The following transforms pipeline will be used 
@@ -587,7 +603,7 @@ def get_ssl_transforms_3d(args, device=None):
         ),
         IoUCropd(
             keys=['img'], 
-            spatial_dims=3,  # TODO
+            spatial_dims=3,
             min_iou=args.min_iou, 
             max_iou=args.max_iou
         ),
