@@ -92,10 +92,9 @@ def get_args_parser():
         help='Path to training data directory.')
     parser.add_argument('--split_path', default='./data/split.json', type=str,
         help='Path to .json file with data split.')
-    parser.add_argument('--chkpt_dir', default='./chkpts', type=str, 
-        help='Path to checkpoints directory.')
-    parser.add_argument('--chkpt_load', default=None, type=str, 
-        help='ID of checkpoint to load at the beginning of training.')
+    parser.add_argument('--chkpt_path', type=str, 
+        help='''Path to model checkpoint to load at the beginning of training.
+        If not provided, the model will be trained from scratch.''')
     parser.add_argument('--cache_dir', default='./cache', type=str, 
         help='`cache_dir` in monai.data.PersistentDataset objects.')
     parser.add_argument('--seed', default=4294967295, type=int, 
@@ -280,12 +279,11 @@ def main(args):
         use_checkpoint=args.use_gradient_checkpointing
     ).to(device)
 
-    if args.chkpt_load is not None:
-        chkpt_path = Path(args.chkpt_dir)/Path(args.chkpt_load+'.pt')
+    if args.chkpt_path is not None:
         model.swinViT.load_state_dict(
-            torch.load(chkpt_path)
+            torch.load(args.chkpt_path)
         )
-        print(f'Successfully loaded weights from {chkpt_path}.')
+        print(f'Successfully loaded weights from {args.chkpt_path}.')
 
     # Prepare other stuff for training
     loss_fn = DiceCELoss(
