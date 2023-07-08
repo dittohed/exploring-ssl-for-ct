@@ -79,7 +79,7 @@ class IoUCropd(T.Randomizable, T.MapTransform):
         # Leave spatial dims only and enforce x-first order
         # instead of y-first order
         # TODO: this is probably not needed, simplify
-        shape = list(shape[-self._spatial_dims:])  # TODO: doublecheck
+        shape = list(shape[-self._spatial_dims:])
         shape[0], shape[1] = shape[1], shape[0]
 
         retries_total = 0
