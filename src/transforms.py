@@ -182,8 +182,8 @@ class IoUCropd(T.Randomizable, T.MapTransform):
             d[f'{key}2'] =  self._cropper(d[key], self._coords_to_slices(coords2))
 
             if self._debug:
-                d[f'{key}1_slices'] = self._coords_to_slices(coords1) 
-                d[f'{key}2_slices'] = self._coords_to_slices(coords2)
+                d[f'{key}1_slices'] = str(self._coords_to_slices(coords1))
+                d[f'{key}2_slices'] = str(self._coords_to_slices(coords2))
             else: 
                 del d[key]  # Remove original image
 
@@ -397,7 +397,7 @@ def get_preprocess_transforms_2d(args, mode='finetune') -> T.Compose:
     return T.Compose(transforms)
 
 
-def get_ssl_transforms_2d(args, device=None) -> T.Compose:
+def get_ssl_transforms_2d(args, debug=False) -> T.Compose:
     """
     Return img transforms for 2D pretraining.
 
@@ -422,19 +422,18 @@ def get_ssl_transforms_2d(args, device=None) -> T.Compose:
         ),
         T.EnsureTyped(
             keys=['img'], 
-            track_meta=False,
-            device=device
+            track_meta=False
         ),
         IoUCropd(
             keys=['img'], 
             spatial_dims=2,
             min_iou=args.min_iou, 
-            max_iou=args.max_iou
+            max_iou=args.max_iou,
+            debug=debug
         ),
         T.EnsureTyped(
             keys=['img1', 'img2'], 
-            track_meta=False,
-            device=device
+            track_meta=False
         ),
         *get_ssl_rand_transforms('img1', spatial_dims=2),
         *get_ssl_rand_transforms('img2', spatial_dims=2)
@@ -581,7 +580,7 @@ def get_preprocess_transforms_3d(args) -> T.Compose:
     return T.Compose(transforms)
 
 
-def get_ssl_transforms_3d(args, device=None):
+def get_ssl_transforms_3d(args, device=None, debug=False):
     """
     Return img transforms for 3D pretraining.
 
@@ -604,7 +603,8 @@ def get_ssl_transforms_3d(args, device=None):
             keys=['img'], 
             spatial_dims=3,
             min_iou=args.min_iou, 
-            max_iou=args.max_iou
+            max_iou=args.max_iou,
+            debug=debug
         ),
         T.EnsureTyped(
             keys=['img1', 'img2'], 
