@@ -78,7 +78,7 @@ def get_args_parser():
         help='Number of epochs for the linear learning-rate warm up.')
     parser.add_argument('--wd', type=float, default=1e-5, 
         help='Weight decay throughout the whole training.')
-    parser.add_argument('--sw_overlap', default=0.5, type=float,
+    parser.add_argument('--sw_overlap', default=0.25, type=float,
         help='Sliding window inference overlap.')
     parser.add_argument('--patience', default=10, type=float,
         help='How many evals to wait for val metric to improve before terminating.')
@@ -88,6 +88,8 @@ def get_args_parser():
         help='Unique run/experiment name.')
     parser.add_argument('--eval_every', default=10, type=int,
         help='After how many epochs to evaluate in the training cycle.')
+    parser.add_argument('--eval_train', action='store_true',
+        help='Whether to evaluate also using training data besides validation data.')
     parser.add_argument('--data_dir', default='./data/finetune_preprocessed_2d', type=str,
         help='Path to training data directory.')
     parser.add_argument('--split_path', default='./data/split.json', type=str,
@@ -165,12 +167,12 @@ def train_one_epoch(model, loss_fn, train_loader, optimizer, lr_schedule,
 
 
 @torch.no_grad()
-def val_one_epoch(model, acc_fn, val_loader, post_label, post_pred,
+def evaluate(subset, model, acc_fn, data_loader, post_label, post_pred,
         scaler, org_thresholds, args, device):
     avg_dice = utils.AverageAggregator()
     avg_surf_dice = utils.AverageAggregator()
 
-    for data_dict in val_loader:
+    for data_dict in data_loader:
         img, label = data_dict['img'].to(device), data_dict['label'].to(device)
 
         with torch.cuda.amp.autocast(enabled=(scaler is not None)):
@@ -199,12 +201,12 @@ def val_one_epoch(model, acc_fn, val_loader, post_label, post_pred,
         # neither in pred nor in gt 
         avg_surf_dice.update(torch.nanmean(surf_dice))  
 
-    print(f'Mean validation dice score: {avg_dice.item():.4f}.')
-    print(f'Mean validation surface dice score: {avg_surf_dice.item():.4f}.')
+    print(f'Mean {subset} dice score: {avg_dice.item():.4f}.')
+    print(f'Mean {subset} surface dice score: {avg_surf_dice.item():.4f}.')
 
     log_dict = {
-        'val/dice': avg_dice.item(),
-        'val/surf_dice': avg_surf_dice.item()
+        f'{subset}/dice': avg_dice.item(),
+        f'{subset}/surf_dice': avg_surf_dice.item()
     }
     return log_dict
 
@@ -239,6 +241,12 @@ def main(args):
             num_workers=0,
             shuffle=True
         )
+        train_eval_loader = ThreadDataLoader(
+            train_ds, 
+            batch_size=1,
+            num_workers=0, 
+            shuffle=False
+        )
         val_loader = ThreadDataLoader(
             val_ds, 
             batch_size=1,
@@ -260,6 +268,13 @@ def main(args):
             batch_size=args.batch_size,
             num_workers=args.num_workers,
             shuffle=True,
+            pin_memory=torch.cuda.is_available()
+        )
+        train_eval_loader = DataLoader(
+            train_ds,
+            batch_size=1,
+            num_workers=0,
+            shuffle=False,
             pin_memory=torch.cuda.is_available()
         )
         val_loader = DataLoader(
@@ -348,18 +363,27 @@ def main(args):
 
         if (epoch+1) % args.eval_every == 0:
             model.eval()
-            val_log_dict = val_one_epoch(
-                model_infer, acc_fn, val_loader, post_label, post_pred, scaler,
-                org_thresholds, args, device
-            )
-            bc(val_log_dict['val/dice'])
-            if es(val_log_dict['val/dice']):
-                break
 
-            log_dict.update(val_log_dict)
+            if args.eval_train:
+                eval_log_dict_train = evaluate(
+                    'train', model_infer, acc_fn, train_eval_loader, post_label, 
+                    post_pred, scaler, org_thresholds, args, device
+                )
+                log_dict.update(eval_log_dict_train)
+
+            eval_log_dict_val = evaluate(
+                'val', model_infer, acc_fn, val_loader, post_label, 
+                post_pred, scaler, org_thresholds, args, device
+            )
+            log_dict.update(eval_log_dict_val)
+            bc(eval_log_dict_val['val/dice'])
+            es(eval_log_dict_val['val/dice'])
 
         if args.use_wandb:
             wandb.log(log_dict)
+
+        if es.terminate:
+            break
 
 
 if __name__ == '__main__':

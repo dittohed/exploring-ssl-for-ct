@@ -6,19 +6,17 @@ class EarlyStopping():
         self._patience = patience
         self._best_score = 0
         self._counter = 0
-        self._terminate = False
+        self.terminate = False
 
     def __call__(self, score):
         if score <= self._best_score:
             self._counter += 1
             if self._counter == self._patience:
                 print(f'Score has not increased from {self._best_score} for {self._patience} eval steps.')
-                self._terminate = True
+                self.terminate = True
         else:
             self._best_score = score
             self._counter = 0
-
-        return self._terminate
     
 
 class BestCheckpoint():
