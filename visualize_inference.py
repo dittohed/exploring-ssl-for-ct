@@ -70,10 +70,10 @@ def save_2d_img_gt_pred_plot(img, label, pred, save_path):
     axs[0].imshow(img.cpu(), cmap='gray', vmin=0, vmax=1)
     axs[0].set_title('Original slice')
 
-    axs[1].imshow(label.cpu())
+    axs[1].imshow(label.cpu(), interpolation='none')
     axs[1].set_title('Label')
 
-    axs[2].imshow(pred.cpu())
+    axs[2].imshow(pred.cpu(), interpolation='none')
     axs[2].set_title('Prediction')
 
     plt.savefig(save_path)
