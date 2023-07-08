@@ -230,6 +230,11 @@ def main(args):
             transform=train_transforms,
             cache_dir=args.cache_dir
         )
+        train_eval_ds = PersistentDataset(
+            data=train_data, 
+            transform=val_transforms,
+            cache_dir=args.cache_dir
+        )
         val_ds = PersistentDataset(
             data=val_data, 
             transform=val_transforms,
@@ -242,7 +247,7 @@ def main(args):
             shuffle=True
         )
         train_eval_loader = ThreadDataLoader(
-            train_ds, 
+            train_eval_ds, 
             batch_size=1,
             num_workers=0, 
             shuffle=False
@@ -259,6 +264,10 @@ def main(args):
             data=train_data,
             transform=train_transforms
         )
+        train_eval_ds = Dataset(
+            data=train_data, 
+            transform=val_transforms
+        )
         val_ds = Dataset(
             data=val_data, 
             transform=val_transforms
@@ -271,7 +280,7 @@ def main(args):
             pin_memory=torch.cuda.is_available()
         )
         train_eval_loader = DataLoader(
-            train_ds,
+            train_eval_ds,
             batch_size=1,
             num_workers=0,
             shuffle=False,
