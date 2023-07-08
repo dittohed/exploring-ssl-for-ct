@@ -92,6 +92,8 @@ def get_args_parser():
         help='Path to training data directory.')
     parser.add_argument('--split_path', default='./data/split.json', type=str,
         help='Path to .json file with data split.')
+    parser.add_argument('--chkpt_dir', default='./chkpts', type=str, 
+        help='Path to directory for storing trained model\'s best checkpoint.')
     parser.add_argument('--chkpt_path', type=str, 
         help='''Path to model checkpoint to load at the beginning of training.
         If not provided, the model will be trained from scratch.''')
