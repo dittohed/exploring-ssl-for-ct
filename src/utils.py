@@ -1,3 +1,4 @@
+import math
 import numpy as np
 import torch
 import matplotlib.pyplot as plt
@@ -105,11 +106,16 @@ class AverageAggregator():
     explicitly.
     """
 
-    def __init__(self):
+    def __init__(self, ignore_nans=True):
+        self._ignore_nans = ignore_nans 
+
         self._avg = 0
         self._count = 0
 
     def update(self, val, n=1):
+        if self._ignore_nans and math.isnan(val):
+            return
+
         self._avg = (
             (self._avg*self._count + val*n) / (self._count+n)
         )

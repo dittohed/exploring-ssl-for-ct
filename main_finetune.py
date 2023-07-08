@@ -263,7 +263,7 @@ def main(args):
         val_loader = DataLoader(
             val_ds,
             batch_size=1,
-            num_workers=args.num_workers,
+            num_workers=0,
             shuffle=False,
             pin_memory=torch.cuda.is_available()
         )
