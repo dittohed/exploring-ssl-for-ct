@@ -8,7 +8,6 @@ import torch
 import torch.optim as optim
 
 from functools import partial
-from collections import OrderedDict
 from pathlib import Path
 from tqdm import tqdm
 
@@ -168,9 +167,8 @@ def train_one_epoch(model, loss_fn, train_loader, optimizer, lr_schedule,
 
 @torch.no_grad()
 def evaluate(subset, model, acc_fn, data_loader, post_label, post_pred,
-        scaler, org_thresholds, args, device):
+        scaler, device):
     avg_dice = utils.AverageAggregator()
-    avg_surf_dice = utils.AverageAggregator()
 
     for data_dict in data_loader:
         img, label = data_dict['img'].to(device), data_dict['label'].to(device)
@@ -190,23 +188,10 @@ def evaluate(subset, model, acc_fn, data_loader, post_label, post_pred,
         assert not_nans == 1  # TODO: be careful for multiple GPUs
         avg_dice.update(acc.item())
 
-        # Surface dice
-        surf_dice = compute_surface_dice(
-            y_pred=torch.stack(pred_list), 
-            y=torch.stack(label_list), 
-            class_thresholds=list(org_thresholds.values()),
-            spacing=(args.size_y, args.size_x, args.size_z)[:args.spatial_dims]
-        )
-        # torch.nanmean() to ignore cases where there's no certain class
-        # neither in pred nor in gt 
-        avg_surf_dice.update(torch.nanmean(surf_dice))  
-
     print(f'Mean {subset} dice score: {avg_dice.item():.4f}.')
-    print(f'Mean {subset} surface dice score: {avg_surf_dice.item():.4f}.')
 
     log_dict = {
-        f'{subset}/dice': avg_dice.item(),
-        f'{subset}/surf_dice': avg_surf_dice.item()
+        f'{subset}/dice': avg_dice.item()
     }
     return log_dict
 
@@ -336,10 +321,7 @@ def main(args):
     post_label = AsDiscrete(to_onehot=args.n_classes)
     post_pred = AsDiscrete(argmax=True, to_onehot=args.n_classes)
 
-    org_thresholds = OrderedDict(  # FLARE2022 official thresholds
-        {'Liver': 5, 'RK': 3, 'Spleen': 3, 'Pancreas': 5, 
-         'Aorta': 2, 'IVC': 2, 'RAG': 2, 'LAG': 2, 'Gallbladder': 2,
-         'Esophagus': 3, 'Stomach': 5, 'Duodenum': 7, 'LK': 3})
+    
 
     model_infer = partial(
         sliding_window_inference,
@@ -376,13 +358,13 @@ def main(args):
             if args.eval_train:
                 eval_log_dict_train = evaluate(
                     'train', model_infer, acc_fn, train_eval_loader, post_label, 
-                    post_pred, scaler, org_thresholds, args, device
+                    post_pred, scaler, device
                 )
                 log_dict.update(eval_log_dict_train)
 
             eval_log_dict_val = evaluate(
                 'val', model_infer, acc_fn, val_loader, post_label, 
-                post_pred, scaler, org_thresholds, args, device
+                post_pred, scaler, device
             )
             log_dict.update(eval_log_dict_val)
             bc(eval_log_dict_val['val/dice'])

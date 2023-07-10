@@ -6,13 +6,14 @@ import matplotlib.pyplot as plt
 import src.utils as utils
 
 from functools import partial
+from collections import OrderedDict
 from pathlib import Path
 from tqdm import tqdm
 
 from monai.networks.nets import SwinUNETR
 from monai.data import DataLoader, Dataset, decollate_batch
 from monai.inferers import sliding_window_inference
-from monai.metrics import DiceMetric
+from monai.metrics import DiceMetric, compute_surface_dice
 from monai.transforms import AsDiscrete
 from monai.utils.enums import MetricReduction
 
@@ -132,12 +133,21 @@ def main(args):
 
     scaler = torch.cuda.amp.GradScaler() if args.use_amp else None
 
+    # Prepare stuff for calculating metrics
     acc_fn = DiceMetric(include_background=True, reduction=MetricReduction.MEAN, get_not_nans=True)
     post_label = AsDiscrete(to_onehot=14)
     post_pred = AsDiscrete(argmax=True, to_onehot=14)
 
-    avg_agg = utils.AverageAggregator()
+    org_thresholds = OrderedDict(  # FLARE2022 official thresholds for surf dice
+        {'Liver': 5, 'RK': 3, 'Spleen': 3, 'Pancreas': 5, 
+         'Aorta': 2, 'IVC': 2, 'RAG': 2, 'LAG': 2, 'Gallbladder': 2,
+         'Esophagus': 3, 'Stomach': 5, 'Duodenum': 7, 'LK': 3}
+    )
 
+    avg_dice = utils.AverageAggregator()
+    avg_surf_dice = utils.AverageAggregator()
+
+    # Eval loop
     for data_dict in tqdm(loader):
         img, label = data_dict['img'], data_dict['label']
 
@@ -169,13 +179,26 @@ def main(args):
                 save_path = out_dir / (file_id + f'_{i}.png')
                 save_2d_img_gt_pred_plot(img, label, pred, save_path)
 
+        # Dice
         acc_fn.reset()
         acc_fn(y_pred=pred_list, y=label_list)
         acc, not_nans = acc_fn.aggregate()
         assert not_nans == 1
-        avg_agg.update(acc.item())
+        avg_dice.update(acc.item())
 
-    print(f'Mean validation dice score: {avg_agg.item():.4f}')
+        # Surface dice
+        surf_dice = compute_surface_dice(
+            y_pred=torch.stack(pred_list), 
+            y=torch.stack(label_list), 
+            class_thresholds=list(org_thresholds.values()),
+            spacing=(args.size_y, args.size_x, args.size_z)[:args.spatial_dims]
+        )
+        # torch.nanmean() to ignore cases where there's no certain class
+        # neither in pred nor in gt 
+        avg_surf_dice.update(torch.nanmean(surf_dice))  
+
+    print(f'Mean validation dice score: {avg_dice.item():.4f}')
+    print(f'Mean validation surface dice score: {avg_surf_dice.item():.4f}.')
 
 
 if __name__ == '__main__':
