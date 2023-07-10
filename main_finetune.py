@@ -21,7 +21,7 @@ from monai.data import (
     decollate_batch
 )
 from monai.inferers import sliding_window_inference
-from monai.metrics import DiceMetric, compute_surface_dice
+from monai.metrics import DiceMetric
 from monai.transforms import AsDiscrete
 from monai.utils import set_determinism
 from monai.utils.enums import MetricReduction
@@ -320,8 +320,6 @@ def main(args):
     acc_fn = DiceMetric(include_background=True, reduction=MetricReduction.MEAN, get_not_nans=True)
     post_label = AsDiscrete(to_onehot=args.n_classes)
     post_pred = AsDiscrete(argmax=True, to_onehot=args.n_classes)
-
-    
 
     model_infer = partial(
         sliding_window_inference,
