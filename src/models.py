@@ -21,12 +21,12 @@ class Backbone(torch.nn.Module):
             drop_path_rate=args.drop_path_rate,
             norm_layer=torch.nn.LayerNorm,
             use_checkpoint=args.use_gradient_checkpointing,
-            spatial_dims=args.spatial_dims,
+            spatial_dims=args.spatial_dims
         )
 
     def forward(self, x):
         x = self.model(x)[-1]  # Take the deepest feature map
-        b, dim, _, _, _ = x.shape
+        b, dim = x.shape[:2]
 
         # Mean over spatial dimensions
         # TODO: why did the authors use just the first subcube?
