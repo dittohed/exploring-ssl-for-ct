@@ -16,7 +16,7 @@ from monai.utils import set_determinism
 import src.utils as utils
 
 from src.loaders import get_ssl_data
-from src.transforms import get_ssl_transforms
+from src.transforms import get_ssl_transforms_2d, get_ssl_transforms_3d
 from src.models import Backbone
 from src.dino import Head as DINOHead
 from src.dino import Loss as DINOLoss
@@ -26,7 +26,7 @@ def get_args_parser():
     parser = argparse.ArgumentParser('Pretrain CT')
 
     # Swin params
-    parser.add_argument('--embedding_size', default=48, type=int,
+    parser.add_argument('--embedding_size', default=24, type=int,
         help='Swin backbone base embedding size (C from the paper).')
     parser.add_argument('--drop_path_rate', default=0.1, type=float,
         help='`drop_path_rate` for monai.networks.nets.swin_unetr.SwinTransformer.')
@@ -46,7 +46,7 @@ def get_args_parser():
         help='Number of warmup epochs for the teacher temperature.')
     
     # Data params
-    parser.add_argument('--spatial_dims', default=3, type=int, 
+    parser.add_argument('--spatial_dims', default=2, type=int, 
         help='Spatial dimension of input data, either 2 for 2D or 3 for 3D')
     parser.add_argument('--a_min', default=-500, type=float, 
         help='`a_min` in monai.transforms.ScaleIntensityRanged')
@@ -62,15 +62,13 @@ def get_args_parser():
         help='Min. IoU of the 2nd crop with the 1st crop')
     parser.add_argument('--max_iou', default=1.0, type=float, 
         help='Max. IoU of the 2nd crop with the 1st crop')
-    parser.add_argument('--preprocess_mode', default='full', type=str, 
-        help='How to preprocess training data.')
 
     # Training params
     parser.add_argument('--use_amp', action='store_true',
-        help='Whether to use AMP for training.')
-    parser.add_argument('--batch_size_per_gpu', default=2, type=int,
-        help='''Number of distinct images loaded on a single GPU for which a single
-        backward pass will be calculated (just a batch size per GPU if calling with
+        help='Whether to use Automatic Mixed Precision for training.')
+    parser.add_argument('--batch_size', default=2, type=int,
+        help='''Number of distinct images for which a single
+        backward pass will be calculated (just a batch size if running with
         --accum_iters 1).''')
     parser.add_argument('--n_epochs', default=300, type=int, 
         help='Number of epochs of training.')
@@ -99,14 +97,16 @@ def get_args_parser():
     # Other params
     parser.add_argument('--run_name', default='test_ssl', type=str,
         help='Unique run/experiment name.')
-    parser.add_argument('--data_dir', default='./data/ssl', type=str,
+    parser.add_argument('--data_dir', default='./data/ssl_preprocessed_2d', type=str,
         help='Path to pretraining data directory.')
     parser.add_argument('--chkpt_dir', default='./chkpts', type=str, 
-        help='Path to checkpoints directory.')
+        help='Path to directory for storing trained model\'s last checkpoint.')
     parser.add_argument('--seed', default=4294967295, type=int, 
         help='Random seed.')
     parser.add_argument('--num_workers', default=0, type=int, 
-        help='Number of data loading workers per GPU.')
+        help='''Number of data loading workers. Should remain
+        0 for --spatial_dims 3 as GPU is used to perform transformations (faster
+        but can't be parallelized using `DataLoader`).''')
     parser.add_argument('--use_wandb', action='store_true',
         help='Whether to log training config and results to W&B.')
     parser.add_argument('--low_resource_mode', action='store_true',
@@ -231,13 +231,21 @@ def main(args):
     set_determinism(args.seed)
 
     # Prepare data
-    dataset = Dataset(
+    if args.spatial_dims == 2:
+        transforms = get_ssl_transforms_2d(args)
+    else:
+        transforms = get_ssl_transforms_3d(args, device=device)
+
+    ds = Dataset(
         data=get_ssl_data(args.data_dir), 
-        transform=get_ssl_transforms(args, args.preprocess_mode, device))
+        transform=transforms
+    )
     data_loader = DataLoader(
-        dataset, 
-        batch_size=args.batch_size_per_gpu,
-        num_workers=args.num_workers
+        ds, 
+        batch_size=args.batch_size,
+        num_workers=args.num_workers,
+        shuffle=True,
+        pin_memory=torch.cuda.is_available()
     )
 
     # Prepare models
@@ -278,7 +286,7 @@ def main(args):
     # Specify the number of optimizer.step() calls (logical batches)
     # This is needed for turning gradient accum on/off smoothly
     # Last incomplete logical batch is skipped
-    iters_per_epoch = len(dataset) // (args.batch_size_per_gpu*args.accum_iters)
+    iters_per_epoch = len(ds) // (args.batch_size*args.accum_iters)
 
     lr_schedule = utils.cosine_scheduler(
         base_val=args.base_lr,
@@ -327,7 +335,7 @@ if __name__ == '__main__':
 
     if args.low_resource_mode:
         args.embedding_size = 12
-        args.batch_size_per_gpu = 1
+        args.batch_size = 1
 
     if args.use_wandb:
         wandb.init(
