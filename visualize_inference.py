@@ -65,16 +65,18 @@ def get_args_parser():
     return parser
 
 
-def save_2d_img_gt_pred_plot(img, label, pred, save_path):
+def save_2d_img_gt_pred_plot(img, label, pred, save_path, args):
     _, axs = plt.subplots(1, 3, figsize=(10, 10))
 
     axs[0].imshow(img.cpu(), cmap='gray', vmin=0, vmax=1)
     axs[0].set_title('Original slice')
 
-    axs[1].imshow(label.cpu(), interpolation='none')
+    axs[1].imshow(label.cpu(), interpolation='none', 
+                  vmin=0, vmax=args.n_classes-1)
     axs[1].set_title('Label')
 
-    axs[2].imshow(pred.cpu(), interpolation='none')
+    axs[2].imshow(pred.cpu(), interpolation='none', 
+                  vmin=0, vmax=args.n_classes-1)
     axs[2].set_title('Prediction')
 
     plt.savefig(save_path)
@@ -169,7 +171,7 @@ def main(args):
             pred = torch.argmax(pred[0], dim=0)
 
             save_path = out_dir / (file_id + '.png')
-            save_2d_img_gt_pred_plot(img, label, pred, save_path)
+            save_2d_img_gt_pred_plot(img, label, pred, save_path, args)
         else:
             for i in range(img.shape[-1]):  
                 img = img[0, 0, :, :, i]
@@ -177,7 +179,7 @@ def main(args):
                 pred = torch.argmax(pred[0, :, :, :, i], dim=0)
 
                 save_path = out_dir / (file_id + f'_{i}.png')
-                save_2d_img_gt_pred_plot(img, label, pred, save_path)
+                save_2d_img_gt_pred_plot(img, label, pred, save_path, args)
 
         # Dice
         acc_fn.reset()
