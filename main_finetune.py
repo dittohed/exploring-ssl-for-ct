@@ -1,5 +1,6 @@
 import sys
 import math
+import json
 import argparse
 import warnings
 import wandb
@@ -395,5 +396,8 @@ if __name__ == '__main__':
         )
         wandb.define_metric('train/loss', summary='min')
         wandb.define_metric('val/dice', summary='max')
+
+    # with open(f'{args.run_name}_args.json', 'w') as outfile:
+    #     json.dump(vars(args), outfile)
 
     main(args)
