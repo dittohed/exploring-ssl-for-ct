@@ -1,7 +1,11 @@
 import math
+import time
+import multiprocessing as mp
 import numpy as np
 import torch
 import matplotlib.pyplot as plt
+
+from monai.data import DataLoader
 
 
 def get_param_groups(model: torch.nn.Module):
@@ -98,6 +102,33 @@ def display_gpu_info():
     available_mem = available_mem / 2**30
 
     print(f'\nGPU: {occupied_mem:.2f}/{available_mem:.2f} GB occupied\n')
+
+
+def get_best_workers(ds, batch_size):
+    times = {}
+
+    for num_workers in range(0, mp.cpu_count()+2, 2):  
+        loader = DataLoader(
+            ds,
+            batch_size=batch_size,
+            num_workers=num_workers,
+            shuffle=True,
+            pin_memory=torch.cuda.is_available()
+        )
+
+        start = time.time()
+        for _ in loader:
+            pass
+        end = time.time()
+        elapsed = end - start 
+
+        print(f'{num_workers} workers: {elapsed}s')
+        times[num_workers] = elapsed
+
+    best_workers = min(times, key=times.get)
+    print(f'{best_workers} workers will be used.')
+
+    return best_workers
 
 
 class AverageAggregator():

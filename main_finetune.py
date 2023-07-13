@@ -104,7 +104,8 @@ def get_args_parser():
     parser.add_argument('--seed', default=4294967295, type=int, 
         help='Random seed.')
     parser.add_argument('--num_workers', default=10, type=int, 
-        help='Number of data loading workers, used only if --spatial_dims 2.')
+        help='''Number of data loading workers, used only if --spatial_dims 2.
+        If -1, runs quick benchmark first to pick the best value.''')
     parser.add_argument('--use_wandb', action='store_true',
         help='Whether to log training config and results to W&B.')
     parser.add_argument('--low_resource_mode', action='store_true',
@@ -201,6 +202,11 @@ def main(args):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     set_determinism(args.seed)
     torch.backends.cudnn.benchmark = True
+    if args.ignore_user_warning:
+        warnings.filterwarnings(
+            action='ignore',
+            message='.*unable to generate class balanced samples.*',
+        )
 
     # Prepare data
     train_data, val_data = get_finetune_data(
@@ -226,6 +232,7 @@ def main(args):
             transform=val_transforms,
             cache_dir=args.cache_dir
         )
+
         train_loader = ThreadDataLoader(
             train_ds, 
             batch_size=args.batch_size, 
@@ -244,6 +251,7 @@ def main(args):
             num_workers=0, 
             shuffle=False
         )
+
     else:
         train_transforms, val_transforms = get_finetune_transforms_2d(args)
         train_ds = Dataset(
@@ -258,10 +266,15 @@ def main(args):
             data=val_data, 
             transform=val_transforms
         )
+        
+        if args.num_workers == -1:
+            num_workers = utils.get_best_workers(train_ds, args.batch_size)
+        else:
+            num_workers = args.num_workers
         train_loader = DataLoader(
             train_ds,
             batch_size=args.batch_size,
-            num_workers=args.num_workers,
+            num_workers=num_workers,
             shuffle=True,
             pin_memory=torch.cuda.is_available()
         )
@@ -335,12 +348,6 @@ def main(args):
         save_path=Path(args.chkpt_dir)/Path(args.run_name+'_best.pt')
     )
     es = EarlyStopping(args.patience)
-
-    if args.ignore_user_warning:
-        warnings.filterwarnings(
-            action='ignore',
-            message='.*unable to generate class balanced samples.*',
-        )
 
     # Train
     for epoch in range(args.n_epochs):

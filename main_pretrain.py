@@ -107,7 +107,8 @@ def get_args_parser():
     parser.add_argument('--num_workers', default=0, type=int, 
         help='''Number of data loading workers. Should remain
         0 for --spatial_dims 3 as GPU is used to perform transformations (faster
-        but can't be parallelized using `DataLoader`).''')
+        but can't be parallelized using `DataLoader`).
+        If -1, runs quick benchmark first to pick the best value.''')
     parser.add_argument('--use_wandb', action='store_true',
         help='Whether to log training config and results to W&B.')
     parser.add_argument('--low_resource_mode', action='store_true',
@@ -241,10 +242,15 @@ def main(args):
         data=get_ssl_data(args.data_dir), 
         transform=transforms
     )
+
+    if args.num_workers == -1:
+        num_workers = utils.get_best_workers(ds, args.batch_size)
+    else:
+        num_workers = args.num_workers
     data_loader = DataLoader(
         ds, 
         batch_size=args.batch_size,
-        num_workers=args.num_workers,
+        num_workers=num_workers,
         shuffle=True,
         pin_memory=torch.cuda.is_available()
     )
