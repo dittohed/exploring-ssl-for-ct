@@ -1,10 +1,12 @@
 import math
 import time
+import random
 import multiprocessing as mp
 import numpy as np
 import torch
 import matplotlib.pyplot as plt
 
+from torch.utils.data import Subset
 from monai.data import DataLoader
 
 
@@ -106,7 +108,11 @@ def display_gpu_info():
 
 def get_best_workers(ds, batch_size):
     times = {}
-
+    ds = Subset(
+        ds, 
+        random.choices(list(range(len(ds))), k=min(1024, len(ds)))
+    )  # Take subset only for quick benchmark
+    
     for num_workers in range(0, mp.cpu_count()+2, 2):  
         loader = DataLoader(
             ds,
