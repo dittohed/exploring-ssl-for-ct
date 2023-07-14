@@ -86,8 +86,6 @@ def get_args_parser():
     # Other params
     parser.add_argument('--run_name', default='test_finetune', type=str,
         help='Unique run/experiment name.')
-    parser.add_argument('--eval_every', default=10, type=int,
-        help='After how many epochs to evaluate in the training cycle.')
     parser.add_argument('--eval_train', action='store_true',
         help='Whether to evaluate also using training data besides validation data.')
     parser.add_argument('--data_dir', default='./data/finetune_preprocessed_2d', type=str,
@@ -348,6 +346,10 @@ def main(args):
         save_path=Path(args.chkpt_dir)/Path(args.run_name+'_best.pt')
     )
     es = EarlyStopping(args.patience)
+    
+    # Epoch numbers after which evaluation should be run
+    # Evaluate every epoch only starting from some point
+    eval_schedule = list(range(9, 100, 10)) + list(range(100, args.n_epochs))
 
     # Train
     for epoch in range(args.n_epochs):
@@ -358,7 +360,7 @@ def main(args):
             epoch, scaler, args, device
         )
 
-        if (epoch+1) % args.eval_every == 0:
+        if epoch in eval_schedule:
             model.eval()
 
             if args.eval_train:
