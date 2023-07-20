@@ -24,7 +24,7 @@ from src.dino import Loss as DINOLoss
 
 
 def get_args_parser():
-    parser = argparse.ArgumentParser('Pretrain CT')
+    parser = argparse.ArgumentParser('Pretrain CT using DINO')
 
     # Swin params
     parser.add_argument('--embedding_size', default=24, type=int,
