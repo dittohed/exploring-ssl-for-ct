@@ -2,6 +2,7 @@ import torch
 
 from monai.networks.nets.swin_unetr import SwinTransformer
 from monai.utils import ensure_tuple_rep
+from lightly.models.modules import SimSiamPredictionHead, SimSiamProjectionHead
 
 
 class Backbone(torch.nn.Module):
@@ -31,3 +32,21 @@ class Backbone(torch.nn.Module):
         # Mean over spatial dimensions
         # TODO: why did the authors use just the first subcube?
         return torch.mean(x.view(b, dim, -1), dim=2)
+
+
+class SimSiam(torch.nn.Module):
+    def __init__(self, backbone, backbone_out_dim):
+        super().__init__()
+        self.backbone = backbone
+        self.projection_head = SimSiamProjectionHead(
+            input_dim=backbone_out_dim
+        )
+        self.prediction_head = SimSiamPredictionHead()
+
+    def forward(self, x):
+        f = self.backbone(x)
+        z = self.projection_head(f)
+        p = self.prediction_head(z)
+        z = z.detach()
+
+        return z, p
