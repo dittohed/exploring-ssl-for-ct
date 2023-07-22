@@ -303,7 +303,8 @@ def main(args):
     ).to(device)
 
     if args.chkpt_path is not None:
-        state_dict = torch.load(args.chkpt_path, map_location=torch.device('cpu'))
+        state_dict = torch.load(args.chkpt_path)
+        # FIXME: modifying keys below might not work for DINO
         state_dict = {  # Get backbone params only and remove prefixes
             '.'.join(param_name.split('.')[2:]): param 
             for (param_name, param) in state_dict.items() 
