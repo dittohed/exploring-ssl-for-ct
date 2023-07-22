@@ -1,4 +1,5 @@
 import argparse
+import math
 import wandb
 
 from pathlib import Path
@@ -21,7 +22,7 @@ def get_args_parser():
     parser = argparse.ArgumentParser('Pretrain CT using SimSiam')
 
     # Swin params
-    parser.add_argument('--embedding_size', default=24, type=int,
+    parser.add_argument('--embedding_size', default=48, type=int,
         help='Swin backbone base embedding size (C from the paper).')
     parser.add_argument('--drop_path_rate', default=0.1, type=float,
         help='`drop_path_rate` for monai.networks.nets.swin_unetr.SwinTransformer.')
@@ -49,13 +50,13 @@ def get_args_parser():
     # Training params
     parser.add_argument('--use_amp', action='store_true',
         help='Whether to use Automatic Mixed Precision for training.')
-    parser.add_argument('--batch_size', default=2, type=int,
+    parser.add_argument('--batch_size', default=128, type=int,
         help='''Number of distinct images for which a single
         backward pass will be calculated (just a batch size if running with
         --accum_iters 1).''')
-    parser.add_argument('--n_epochs', default=300, type=int, 
+    parser.add_argument('--n_epochs', default=100, type=int, 
         help='Number of epochs of training.')
-    parser.add_argument('--base_lr', default=0.5, type=float,
+    parser.add_argument('--base_lr', default=0.025, type=float,
         help='''Learning rate at the end of linear warmup (highest used during 
         training).''')
     parser.add_argument('--warmup_epochs', default=0, type=int,
@@ -93,6 +94,7 @@ def get_args_parser():
 def train_one_epoch(model, loss_fn, train_loader, iters_per_epoch,
         optimizer, lr_schedule, epoch, scaler, device, args):
     avg_loss = utils.AverageAggregator()
+    avg_std = utils.AverageAggregator()  # To monitor collapse
     batch_loss = 0  # Accumulate loss from accumulation steps
 
     # Display tqdm for each backward pass (actual batches)
@@ -117,6 +119,12 @@ def train_one_epoch(model, loss_fn, train_loader, iters_per_epoch,
 
         # utils.display_gpu_info()
         batch_loss += loss.item()
+
+        # Monitor collapse
+        out = p1.detach()
+        out = torch.nn.functional.normalize(out, dim=1)
+        out_std_mean = torch.std(out, dim=0).mean()
+        avg_std.update(out_std_mean.item())
 
         if args.use_amp:
             scaler.scale(loss).backward()
@@ -153,7 +161,8 @@ def train_one_epoch(model, loss_fn, train_loader, iters_per_epoch,
 
     log_dict = {
         'train/loss': avg_loss.item(),
-        'train/lr': lr_schedule[step]
+        'train/lr': lr_schedule[step],
+        'train/collapse': max(0.0, 1 - math.sqrt(2048)*avg_std.item())
     }
     return log_dict
 
