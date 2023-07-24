@@ -1,16 +1,6 @@
 {
-    "_comment": "FLARE2022 custom split",
+    "_comment": "FLARE2022 custom 15/35 split",
     "train": [
-        "FLARE22_Tr_0043",
-        "FLARE22_Tr_0035",
-        "FLARE22_Tr_0029",
-        "FLARE22_Tr_0007",
-        "FLARE22_Tr_0001",
-        "FLARE22_Tr_0032",
-        "FLARE22_Tr_0041",
-        "FLARE22_Tr_0017",
-        "FLARE22_Tr_0025",
-        "FLARE22_Tr_0026",
         "FLARE22_Tr_0031",
         "FLARE22_Tr_0028",
         "FLARE22_Tr_0016",
@@ -52,6 +42,16 @@
         "FLARE22_Tr_0021",
         "FLARE22_Tr_0013",
         "FLARE22_Tr_0030",
-        "FLARE22_Tr_0040"
+        "FLARE22_Tr_0040",
+        "FLARE22_Tr_0043",
+        "FLARE22_Tr_0035",
+        "FLARE22_Tr_0029",
+        "FLARE22_Tr_0007",
+        "FLARE22_Tr_0001",
+        "FLARE22_Tr_0032",
+        "FLARE22_Tr_0041",
+        "FLARE22_Tr_0017",
+        "FLARE22_Tr_0025",
+        "FLARE22_Tr_0026"
     ]
 }

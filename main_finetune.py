@@ -69,7 +69,7 @@ def get_args_parser():
         help='No. of crops returned for each CT image in minibatch.')
     parser.add_argument('--sw_batch_size', default=4, type=int,
         help='Batch size for sliding window inference.')
-    parser.add_argument('--n_epochs', default=500, type=int, 
+    parser.add_argument('--n_epochs', default=225, type=int, 
         help='Number of epochs of training.')
     parser.add_argument('--base_lr', default=1e-3, type=float, 
         help='''Learning rate at the end of linear warmup (highest used during 
@@ -100,7 +100,7 @@ def get_args_parser():
     parser.add_argument('--cache_dir', default='./cache', type=str, 
         help='`cache_dir` in monai.data.PersistentDataset objects.')
     parser.add_argument('--seed', default=4294967295, type=int, 
-        help='Random seed.')
+        help='Random seed, another one could be 381122412.')
     parser.add_argument('--num_workers', default=10, type=int, 
         help='''Number of data loading workers, used only if --spatial_dims 2.
         If -1, runs quick benchmark first to pick the best value.''')
@@ -355,7 +355,7 @@ def main(args):
     
     # Epoch numbers after which evaluation should be run
     # Evaluate every epoch only starting from some point
-    eval_schedule = list(range(9, 100, 10)) + list(range(100, args.n_epochs))
+    eval_schedule = list(range(9, 90, 10)) + list(range(90, args.n_epochs))
 
     # Train
     for epoch in range(args.n_epochs):
