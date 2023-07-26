@@ -38,8 +38,8 @@ class IoUCropd(T.Randomizable, T.MapTransform):
     def __init__(
             self, keys: KeysCollection, spatial_dims: int, crop_size: int = 96, 
             min_iou: float = 0.0, max_iou: float = 1.0, 
-            max_retries_existing: int = 20,
-            max_retries_total: int = 60, debug=False):
+            max_retries_existing: int = 30,
+            max_retries_total: int = 120, debug=False):
         assert spatial_dims in [2, 3]
         assert min_iou <= max_iou
 
