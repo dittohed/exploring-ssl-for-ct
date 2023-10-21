@@ -6,4 +6,5 @@ chkpts/
 out/
 cache/
 data/
+tmp/
 !split.json
