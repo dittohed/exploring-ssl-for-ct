@@ -19,7 +19,7 @@ Contrary to previous works presenting alternative strategies for generating posi
 
 ### Details
 
-The proposed method works as follows. Given a 2D or 3D input image x,
+The proposed method works as follows. Given a 2D or 3D input image $x$,
 sample 2 positive crops $x_1$, $x_2$ so that $IoU(x_1, x_2) \in [i_{min}, i_{max}]$, where $i_{min}$ and $i_{max}$ correspond to minimum and maximum IoU allowed for the crops to be considered positive. The
 intuition behind such an approach is that for some of the domains, semantically consistent crops
 appear mostly within a single area, while crops from remote areas might depict various down-
@@ -82,7 +82,7 @@ python main_finetune.py --data_dir <DIR_WITH_PREPROCESSED_2D_PNGS> --chkpt_path 
 ```
 
 Arguments used for running each experiment can be found in the corresponding
-wandb runs (see the table in [Results][#results]): Files -> config.yaml.
+wandb runs (see the table in [Results](#results): Files -> config.yaml.
 
 
 ### DINO and 3D data
