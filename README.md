@@ -20,8 +20,7 @@ Contrary to previous works presenting alternative strategies for generating posi
 ### Details
 
 The proposed method works as follows. Given a 2D or 3D input image x,
-sample 2 positive crops x1 , x2 so that IoU (x1 , x2 ) ∈ [imin , imax ], where imin and imax cor-
-respond to minimum and maximum IoU allowed for the crops to be considered positive. The
+sample 2 positive crops $x_1$, $x_2$ so that $IoU(x_1, x_2) \in [i_{min}, i_{max}]$, where $i_{min}$ and $i_{max}$ correspond to minimum and maximum IoU allowed for the crops to be considered positive. The
 intuition behind such an approach is that for some of the domains, semantically consistent crops
 appear mostly within a single area, while crops from remote areas might depict various down-
 stream classes. On the other hand, too high overlap might introduce easy positives that don’t
@@ -33,18 +32,17 @@ The values of imin and imax must be determined empirically. To
 assess optimal imin and imax for medical imaging pretraining, a few non-overlapping IoU in-
 tervals were evaluated by first pretraining with a given interval using SimSiam, then fine-tuning
 on organ segmentation task. 2 pretrainings were run per IoU interval and 2 fine-tunings were run per
-pretrained model, which resulted in 4 DSC scores per IoU interval. The non-
-overlapping intervals were chosen so that they would reflect various levels of semantic and
+pretrained model, which resulted in 4 DSC scores per IoU interval. The non-overlapping intervals were chosen so that they would reflect various levels of semantic and
 visual similarity between the positive crops. Plain random cropping was also evaluated.
 
 | IoU interval    |Pretraining 1|Pretraining 2| Mean DSC                       | DSC 1   | DSC 2   | DSC 3   | DSC 4   |
 |:----------------|:-----------:|:-----------:|:------------------------------:|:-------:|:-------:|:-------:|:-------:|
-| -               |-            |-            |$0.843 \pm 0.004$              | [$0.842$](https://wandb.ai/dittohead/exploring-ssl-for-ct-tune/runs/3bx73fx8) | [$0.848$](https://wandb.ai/dittohead/exploring-ssl-for-ct-tune/runs/kbt60o1y) | [$0.846$](https://wandb.ai/dittohead/exploring-ssl-for-ct-tune/runs/uy6p9aoj) | [$0.836$](https://wandb.ai/dittohead/exploring-ssl-for-ct-tune/runs/7jj8xaxp) |
-| $[0, 0]$        |[link](https://wandb.ai/dittohead/exploring-ssl-for-ct-pre/runs/jr49k3cg)|[link](https://wandb.ai/dittohead/exploring-ssl-for-ct-pre/runs/lske2j87)|$0.838 \pm 0.007$              | [$0.836$](https://wandb.ai/dittohead/exploring-ssl-for-ct-tune/runs/i5h0zcm9) | [$0.831$](https://wandb.ai/dittohead/exploring-ssl-for-ct-tune/runs/xf5vz6wj) | [$0.834$](https://wandb.ai/dittohead/exploring-ssl-for-ct-tune/runs/z9ryr6qx) | [$0.850$](https://wandb.ai/dittohead/exploring-ssl-for-ct-tune/runs/bx0qr73r) |
-| $[0.0001, 0.3]$ |[link](https://wandb.ai/dittohead/exploring-ssl-for-ct-pre/runs/i5clmwif)|[link](https://wandb.ai/dittohead/exploring-ssl-for-ct-pre/runs/6t60ynal)|$0.839 \pm 0.012$              | [$0.847$](https://wandb.ai/dittohead/exploring-ssl-for-ct-tune/runs/unsew1xa) | [$0.831$](https://wandb.ai/dittohead/exploring-ssl-for-ct-tune/runs/vnpkqlwm) | [$0.855$](https://wandb.ai/dittohead/exploring-ssl-for-ct-tune/runs/mt03b6xe) | [$0.824$](https://wandb.ai/dittohead/exploring-ssl-for-ct-tune/runs/cxdy86mw) |
-| $[0.3, 0.6]$    |[link](https://wandb.ai/dittohead/exploring-ssl-for-ct-pre/runs/7wrcwqc9)|[link](https://wandb.ai/dittohead/exploring-ssl-for-ct-pre/runs/86bsy8uu)|$\boldsymbol{0.853 \pm 0.002}$ | [$0.854$](https://wandb.ai/dittohead/exploring-ssl-for-ct-tune/runs/ejghu868) | [$0.851$](https://wandb.ai/dittohead/exploring-ssl-for-ct-tune/runs/xcb50xmp) | [$0.851$](https://wandb.ai/dittohead/exploring-ssl-for-ct-tune/runs/i8278cxy) | [$0.857$](https://wandb.ai/dittohead/exploring-ssl-for-ct-tune/runs/42gn2rby) |
-| $[0.6, 1]$      |[link](https://wandb.ai/dittohead/exploring-ssl-for-ct-pre/runs/vpay7gn6)|[link](https://wandb.ai/dittohead/exploring-ssl-for-ct-pre/runs/kk0rhojm)|$0.843 \pm 0.013$              | [$0.850$](https://wandb.ai/dittohead/exploring-ssl-for-ct-tune/runs/dtdwsaw8) | [$0.855$](https://wandb.ai/dittohead/exploring-ssl-for-ct-tune/runs/wwq8czji) | [$0.848$](https://wandb.ai/dittohead/exploring-ssl-for-ct-tune/runs/202owflv) | [$0.822$](https://wandb.ai/dittohead/exploring-ssl-for-ct-tune/runs/42gn2rby) |
-| Random crop.    |[link](https://wandb.ai/dittohead/exploring-ssl-for-ct-pre/runs/lkjkduxz)|[link](https://wandb.ai/dittohead/exploring-ssl-for-ct-pre/runs/4x7738lr)|$0.824 \pm 0.011$              | [$0.815$](https://wandb.ai/dittohead/exploring-ssl-for-ct-tune/runs/qutw4bmq) | [$0.841$](https://wandb.ai/dittohead/exploring-ssl-for-ct-tune/runs/tbc0d1no) | [$0.828$](https://wandb.ai/dittohead/exploring-ssl-for-ct-tune/runs/y29bwpxv) | [$0.812$](https://wandb.ai/dittohead/exploring-ssl-for-ct-tune/runs/afgrghq6) |
+| -               |-            |-            |0.843 ± 0.004              | [0.842](https://wandb.ai/dittohead/exploring-ssl-for-ct-tune/runs/3bx73fx8) | [0.848](https://wandb.ai/dittohead/exploring-ssl-for-ct-tune/runs/kbt60o1y) | [0.846](https://wandb.ai/dittohead/exploring-ssl-for-ct-tune/runs/uy6p9aoj) | [0.836](https://wandb.ai/dittohead/exploring-ssl-for-ct-tune/runs/7jj8xaxp) |
+| [0, 0]        |[link](https://wandb.ai/dittohead/exploring-ssl-for-ct-pre/runs/jr49k3cg)|[link](https://wandb.ai/dittohead/exploring-ssl-for-ct-pre/runs/lske2j87)|0.838 ± 0.007              | [0.836](https://wandb.ai/dittohead/exploring-ssl-for-ct-tune/runs/i5h0zcm9) | [0.831](https://wandb.ai/dittohead/exploring-ssl-for-ct-tune/runs/xf5vz6wj) | [0.834](https://wandb.ai/dittohead/exploring-ssl-for-ct-tune/runs/z9ryr6qx) | [0.850](https://wandb.ai/dittohead/exploring-ssl-for-ct-tune/runs/bx0qr73r) |
+| [0.0001, 0.3] |[link](https://wandb.ai/dittohead/exploring-ssl-for-ct-pre/runs/i5clmwif)|[link](https://wandb.ai/dittohead/exploring-ssl-for-ct-pre/runs/6t60ynal)|0.839 ± 0.012              | [0.847](https://wandb.ai/dittohead/exploring-ssl-for-ct-tune/runs/unsew1xa) | [0.831](https://wandb.ai/dittohead/exploring-ssl-for-ct-tune/runs/vnpkqlwm) | [0.855](https://wandb.ai/dittohead/exploring-ssl-for-ct-tune/runs/mt03b6xe) | [0.824](https://wandb.ai/dittohead/exploring-ssl-for-ct-tune/runs/cxdy86mw) |
+| [0.3, 0.6]    |[link](https://wandb.ai/dittohead/exploring-ssl-for-ct-pre/runs/7wrcwqc9)|[link](https://wandb.ai/dittohead/exploring-ssl-for-ct-pre/runs/86bsy8uu)|**0.853 ± 0.002** | [0.854](https://wandb.ai/dittohead/exploring-ssl-for-ct-tune/runs/ejghu868) | [0.851](https://wandb.ai/dittohead/exploring-ssl-for-ct-tune/runs/xcb50xmp) | [0.851](https://wandb.ai/dittohead/exploring-ssl-for-ct-tune/runs/i8278cxy) | [0.857](https://wandb.ai/dittohead/exploring-ssl-for-ct-tune/runs/42gn2rby) |
+| [0.6, 1]      |[link](https://wandb.ai/dittohead/exploring-ssl-for-ct-pre/runs/vpay7gn6)|[link](https://wandb.ai/dittohead/exploring-ssl-for-ct-pre/runs/kk0rhojm)|0.843 ± 0.013              | [0.850](https://wandb.ai/dittohead/exploring-ssl-for-ct-tune/runs/dtdwsaw8) | [0.855](https://wandb.ai/dittohead/exploring-ssl-for-ct-tune/runs/wwq8czji) | [0.848](https://wandb.ai/dittohead/exploring-ssl-for-ct-tune/runs/202owflv) | [0.822](https://wandb.ai/dittohead/exploring-ssl-for-ct-tune/runs/42gn2rby) |
+| Random crop.    |[link](https://wandb.ai/dittohead/exploring-ssl-for-ct-pre/runs/lkjkduxz)|[link](https://wandb.ai/dittohead/exploring-ssl-for-ct-pre/runs/4x7738lr)|0.824 ± 0.011              | [0.815](https://wandb.ai/dittohead/exploring-ssl-for-ct-tune/runs/qutw4bmq) | [0.841](https://wandb.ai/dittohead/exploring-ssl-for-ct-tune/runs/tbc0d1no) | [0.828](https://wandb.ai/dittohead/exploring-ssl-for-ct-tune/runs/y29bwpxv) | [0.812](https://wandb.ai/dittohead/exploring-ssl-for-ct-tune/runs/afgrghq6) |
 
 
 ### Data
@@ -80,7 +78,7 @@ python main_simsiam.py --data_dir <DIR_WITH_PREPROCESSED_2D_PNGS> --embedding_si
 3. Run fine-tuning(s).
 
 ```console
-python main_finetune.py --data_dir $PLG_GROUPS_STORAGE/plggsslct/finetune_preprocessed_2d --chkpt_path <PATH_TO_PRETRAINED_CHKPT> --embedding_size 48 --batch_size 32 --n_epochs 225 --patience 20 --sw_batch_size 64 --ignore_user_warning --num_workers <NUM_WORKERS> --use_amp
+python main_finetune.py --data_dir <DIR_WITH_PREPROCESSED_2D_PNGS> --chkpt_path <PATH_TO_PRETRAINED_CHKPT> --embedding_size 48 --batch_size 32 --n_epochs 225 --patience 20 --sw_batch_size 64 --ignore_user_warning --num_workers <NUM_WORKERS> --use_amp
 ```
 
 Arguments used for running each experiment can be found in the corresponding
