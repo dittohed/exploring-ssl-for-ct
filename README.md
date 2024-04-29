@@ -1,7 +1,7 @@
 # IoU-based positives for CT
 
 PyTorch implementation and results for *IoU-based positives*, a novel strategy
-for generating positive image crops for visual self-supervised learning.
+for generating positive image crops for visual self-supervised learning ([full text](.github/thesis.pdf)).
 
 The method can replace standard random cropping for self-supervised methods such as
 SimCLR, DINO and iBOT. When compared to plain random cropping on pretraining with
