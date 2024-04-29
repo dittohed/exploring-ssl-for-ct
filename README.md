@@ -28,8 +28,8 @@ create a training signal.
 
 ### Results
 
-The values of imin and imax must be determined empirically. To
-assess optimal imin and imax for medical imaging pretraining, a few non-overlapping IoU in-
+The values of $i_{min}$ and $i_{max}$ must be determined empirically. To
+assess optimal $i_{min}$ and $i_{max}$ for medical imaging pretraining, a few non-overlapping IoU in-
 tervals were evaluated by first pretraining with a given interval using SimSiam, then fine-tuning
 on organ segmentation task. 2 pretrainings were run per IoU interval and 2 fine-tunings were run per
 pretrained model, which resulted in 4 DSC scores per IoU interval. The non-overlapping intervals were chosen so that they would reflect various levels of semantic and
